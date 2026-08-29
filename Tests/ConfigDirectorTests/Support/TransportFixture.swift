@@ -102,12 +102,67 @@ extension StubURLProtocol.Response {
     }
 }
 
-/// A server response carrying a single string config, which is all the transport tests need to tell
-/// one config set from the next.
+/// A config in a config set the stubbed server serves.
+struct ServedConfig: Sendable {
+    var key: String
+    var type: String
+    var value: String?
+    var valueID: String?
+
+    init(_ key: String, _ type: String, _ value: String?, valueID: String? = nil) {
+        self.key = key
+        self.type = type
+        self.value = value
+        self.valueID = valueID
+    }
+}
+
+/// The JSON body of a config set, as the ConfigDirector server sends it.
+func configSetJSON(
+    _ configs: [ServedConfig],
+    kind: String = "full",
+    timestamp: String? = nil
+) -> String {
+    let encoded = try? JSONEncoder().encode(ServedConfigSet(
+        kind: kind,
+        timestamp: timestamp,
+        configs: Dictionary(uniqueKeysWithValues: configs.map { config in
+            (config.key, ServedConfigSet.Config(
+                id: config.key,
+                key: config.key,
+                type: config.type,
+                value: config.value,
+                valueId: config.valueID
+            ))
+        })
+    ))
+
+    return encoded.map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+}
+
+/// A config set carrying a single string config, which is all the transport tests need to tell one
+/// config set from the next.
 func configSetJSON(greeting: String, timestamp: String? = nil) -> String {
-    let stamp = timestamp.map { #","timestamp":"\#($0)""# } ?? ""
-    return """
-    {"environmentId":"env","projectId":"proj","kind":"full"\(stamp),"configs":\
-    {"greeting":{"id":"1","key":"greeting","type":"string","value":"\(greeting)","valueId":"v1"}}}
-    """
+    configSetJSON([ServedConfig("greeting", "string", greeting, valueID: "v1")], timestamp: timestamp)
+}
+
+/// One server-sent event carrying `configSet`.
+func sseEvent(_ configSet: String) -> String {
+    "data: \(configSet)\n\n"
+}
+
+private struct ServedConfigSet: Encodable {
+    struct Config: Encodable {
+        var id: String
+        var key: String
+        var type: String
+        var value: String?
+        var valueId: String?
+    }
+
+    var environmentId = "env"
+    var projectId = "proj"
+    var kind: String
+    var timestamp: String?
+    var configs: [String: Config]
 }

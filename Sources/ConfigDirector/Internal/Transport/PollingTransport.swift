@@ -100,6 +100,8 @@ final class PollingTransport: Transport {
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
+        // A cached config set would serve stale values after a change in the dashboard.
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try options.payload(for: context, lastUpdateTimestamp: lastUpdateTimestamp)
 

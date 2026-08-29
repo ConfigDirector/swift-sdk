@@ -27,6 +27,7 @@ struct PollingTransportTests {
         #expect(request.method == "POST")
         #expect(request.headers["Content-Type"] == "application/json")
         #expect(request.timeout == 1)
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
 
         let payload = try #require(request.payload)
         #expect(payload.clientSdkKey == "test-key")

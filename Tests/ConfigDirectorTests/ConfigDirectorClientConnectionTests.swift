@@ -1,0 +1,192 @@
+import ConfigDirector
+import Foundation
+import Testing
+
+/// Exercises how the client connects, reconnects, and disconnects through the public API against a
+/// stubbed ConfigDirector server, with nothing inside the SDK replaced.
+struct ConfigDirectorClientConnectionTests {
+    @Test func rejectsABlankClientSDKKey() {
+        #expect(throws: ConfigDirectorError.missingClientSDKKey) {
+            try ConfigDirectorClient(clientSDKKey: "   ", options: .test())
+        }
+    }
+
+    @Test func rejectsABaseURLThatIsNotAbsolute() throws {
+        let baseURL = try #require(URL(string: "/client"))
+        var options = ConfigDirectorClientOptions.test()
+        options.connection.baseURL = baseURL
+
+        #expect(throws: ConfigDirectorError.invalidBaseURL(baseURL)) {
+            try ConfigDirectorClient(clientSDKKey: "sdk-key", options: options)
+        }
+    }
+
+    @Test func sendsTheSDKKeyContextAndSDKMetadataToTheServer() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+
+        await client.initialize(context: ConfigDirectorContext(id: "user-123", name: "Ada"))
+
+        let request = try #require(fixture.streamRequests.first)
+        #expect(request.method == "POST")
+
+        let payload = try #require(request.payload)
+        #expect(payload.clientSdkKey == "sdk-key")
+        #expect(payload.givenContext.id == "user-123")
+        #expect(payload.givenContext.name == "Ada")
+        #expect(payload.metaContext.sdkName == "swift-client-sdk")
+        #expect(payload.metaContext.sdkVersion.isEmpty == false)
+        #expect(payload.metaContext.userAgent?.isEmpty == false)
+    }
+
+    @Test func updateContextReconnectsWithTheNewContext() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "user-123"))
+
+        let events = StreamReader(client.events)
+        await client.updateContext(ConfigDirectorContext(id: "user-456", traits: ["plan": "pro"]))
+
+        #expect(client.context?.id == "user-456")
+        #expect(client.context?.traits == ["plan": .string("pro")])
+        #expect(fixture.streamRequests.compactMap { $0.payload?.givenContext.id } == ["user-123", "user-456"])
+
+        let ready = await events.next {
+            if case .ready = $0 {
+                true
+            } else {
+                false
+            }
+        }
+        guard case let .ready(reason) = ready else {
+            Issue.record("expected a ready event, got \(String(describing: ready))")
+            return
+        }
+        #expect(reason == .contextUpdate)
+    }
+
+    @Test func initializationGivesUpWaitingWhenNoConfigStateArrives() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream()
+        let client = try fixture.makeClient(timeout: 0.3)
+        defer { client.close() }
+
+        let startedAt = Date()
+        await client.initialize()
+        let elapsed = Date().timeIntervalSince(startedAt)
+
+        #expect(elapsed >= 0.25)
+        #expect(elapsed < 2)
+        #expect(client.isReady == false)
+        #expect(client.isInitializing == false)
+        #expect(client.value(for: "dark-mode", default: false) == false)
+    }
+
+    @Test func aRejectedConnectionLeavesTheClientUnready() async throws {
+        let fixture = ClientFixture()
+        fixture.rejectStream(statusCode: 401)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+
+        await client.initialize(context: ConfigDirectorContext(id: "user-123"))
+
+        #expect(client.isReady == false)
+        #expect(client.context == nil)
+        #expect(fixture.streamRequests.count == 1, "an invalid SDK key must not be retried")
+    }
+
+    @Test func pauseNetworkDisconnectsAndResumeReconnects() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "user-123"))
+
+        client.pauseNetwork()
+        #expect(client.isReady == false)
+        #expect(await waitUntil { fixture.streamDisconnections == 1 })
+
+        await client.resumeNetwork()
+        #expect(client.isReady)
+        #expect(fixture.streamRequests.compactMap { $0.payload?.givenContext.id } == ["user-123", "user-123"])
+    }
+
+    @Test func closeFinishesEveryStreamAndDisconnects() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        await client.initialize()
+
+        let events = client.events
+        let values = client.values(for: "dark-mode", default: false)
+        let drained = Task {
+            for await _ in events {}
+            for await _ in values {}
+            return true
+        }
+
+        client.close()
+
+        #expect(await withTimeout { await drained.value } == true)
+        #expect(await waitUntil { fixture.streamDisconnections == 1 })
+    }
+
+    @Test func closingTwiceDisconnectsOnlyOnce() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        await client.initialize()
+
+        client.close()
+        client.close()
+
+        #expect(await waitUntil { fixture.streamDisconnections == 1 })
+        await settle(0.2)
+        #expect(fixture.streamDisconnections == 1)
+    }
+
+    @Test func pollingModeFetchesFromThePollingEndpoint() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        defer { client.close() }
+
+        await client.initialize()
+
+        #expect(client.isReady)
+        #expect(client.value(for: "dark-mode", default: false) == true)
+        #expect(fixture.streamRequests.isEmpty)
+    }
+
+    @Test func pollingModePicksUpChangesOnTheInterval() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet, deltaConfigSet([ServedConfig("dark-mode", "boolean", "false")]))
+        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        defer { client.close() }
+
+        await client.initialize()
+        #expect(client.value(for: "dark-mode", default: false) == true)
+
+        #expect(await waitUntil { client.value(for: "dark-mode", default: true) == false })
+        #expect(client.value(for: "welcome-message", default: "") == "Hello")
+    }
+
+    @Test func oneTimeModeFetchesOnConnectOnly() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet, deltaConfigSet([ServedConfig("dark-mode", "boolean", "false")]))
+        let client = try fixture.makeClient(mode: .oneTime, pollingInterval: 0.05)
+        defer { client.close() }
+
+        await client.initialize()
+
+        await settle(0.3)
+        #expect(fixture.pollRequests.count == 1)
+        #expect(client.value(for: "dark-mode", default: false) == true)
+    }
+}

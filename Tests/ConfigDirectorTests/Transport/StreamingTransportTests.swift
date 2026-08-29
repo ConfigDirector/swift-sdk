@@ -28,6 +28,7 @@ struct StreamingTransportTests {
         #expect(request.method == "POST")
         #expect(request.headers["Content-Type"] == "application/json")
         #expect(request.headers["Accept"] == "text/event-stream")
+        #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
 
         let payload = try #require(request.payload)
         #expect(payload.clientSdkKey == "test-key")

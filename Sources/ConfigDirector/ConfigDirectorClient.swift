@@ -1,7 +1,5 @@
 import Foundation
 
-typealias TransportFactory = @Sendable (TransportOptions, @escaping ConfigSetHandler) -> any Transport
-
 /// The ConfigDirector SDK client.
 ///
 /// Applications should create a single instance and initialize it during startup.
@@ -42,15 +40,11 @@ public final class ConfigDirectorClient: Sendable {
         try self.init(
             clientSDKKey: clientSDKKey,
             options: options,
-            transportFactory: StubTransport.init
+            session: URLSession(configuration: .default)
         )
     }
 
-    init(
-        clientSDKKey: String,
-        options: ConfigDirectorClientOptions,
-        transportFactory: TransportFactory
-    ) throws {
+    init(clientSDKKey: String, options: ConfigDirectorClientOptions, session: URLSession) throws {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ConfigDirectorError.missingClientSDKKey
         }
@@ -61,16 +55,18 @@ public final class ConfigDirectorClient: Sendable {
         logger = options.logger
         timeout = options.connection.timeout
         self.store = store
-        transport = transportFactory(
-            TransportOptions(
+        transport = Self.makeTransport(
+            mode: options.connection.mode,
+            options: TransportOptions(
                 clientSDKKey: clientSDKKey,
                 baseURL: baseURL,
                 metaContext: AppInfo.metaContext(metadata: options.metadata),
                 instanceID: UUID().uuidString,
                 logger: options.logger,
-                pollingInterval: options.connection.pollingInterval
+                pollingInterval: options.connection.pollingInterval,
+                session: session
             ),
-            { [store] configSet in store.handleConfigSet(configSet) }
+            onConfigSet: { [store] configSet in store.handleConfigSet(configSet) }
         )
     }
 
@@ -237,6 +233,21 @@ public final class ConfigDirectorClient: Sendable {
             succeeds.
             """)
             return
+        }
+    }
+
+    private static func makeTransport(
+        mode: ConnectionMode,
+        options: TransportOptions,
+        onConfigSet: @escaping ConfigSetHandler
+    ) -> any Transport {
+        switch mode {
+        case .streaming:
+            StreamingTransport(options: options, onConfigSet: onConfigSet)
+        case .polling:
+            PollingTransport(options: options, onConfigSet: onConfigSet)
+        case .oneTime:
+            PollingTransport.oneTime(options: options, onConfigSet: onConfigSet)
         }
     }
 

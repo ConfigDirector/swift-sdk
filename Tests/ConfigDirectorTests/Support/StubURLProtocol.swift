@@ -21,6 +21,7 @@ final class StubURLProtocol: URLProtocol {
         var headers: [String: String]
         var body: String?
         var timeout: TimeInterval
+        var cachePolicy: URLRequest.CachePolicy
     }
 
     private struct State {
@@ -30,6 +31,10 @@ final class StubURLProtocol: URLProtocol {
     }
 
     private static let state = Locked(State())
+
+    /// The connections that are still open, so a test can send more down a stream it has already
+    /// scripted, the way the server pushes a config update.
+    private static let live = Locked<[String: [StubURLProtocol]]>([:])
 
     static func enqueue(_ responses: [Response], for url: URL) {
         state.withLock { $0.queues[url.absoluteString, default: []].append(contentsOf: responses) }
@@ -42,6 +47,13 @@ final class StubURLProtocol: URLProtocol {
     /// How many connections to `url` were cancelled by the client rather than ended by the server.
     static func cancelled(for url: URL) -> Int {
         state.withLock { $0.cancelled[url.absoluteString] ?? 0 }
+    }
+
+    /// Sends `text` down every open connection to `url`.
+    static func push(_ text: String, to url: URL) {
+        for connection in live.withLock({ $0[url.absoluteString] ?? [] }) {
+            connection.client?.urlProtocol(connection, didLoad: Data(text.utf8))
+        }
     }
 
     static func makeSession() -> URLSession {
@@ -81,12 +93,15 @@ final class StubURLProtocol: URLProtocol {
 
         if response.endsStream {
             client?.urlProtocolDidFinishLoading(self)
+        } else {
+            Self.live.withLock { $0[url.absoluteString, default: []].append(self) }
         }
     }
 
     override func stopLoading() {
         let key = request.url?.absoluteString ?? ""
         Self.state.withLock { $0.cancelled[key, default: 0] += 1 }
+        Self.live.withLock { $0[key]?.removeAll { $0 === self } }
     }
 
     /// Takes the next scripted response, defaulting to one that stays open so a client that
@@ -100,7 +115,8 @@ final class StubURLProtocol: URLProtocol {
                     method: request.httpMethod,
                     headers: request.allHTTPHeaderFields ?? [:],
                     body: body(of: request),
-                    timeout: request.timeoutInterval
+                    timeout: request.timeoutInterval,
+                    cachePolicy: request.cachePolicy
                 )
             )
 

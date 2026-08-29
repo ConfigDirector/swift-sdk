@@ -73,6 +73,11 @@ passing for the wrong reason: the stream buffers only the newest value, so it dr
 emission before the test could observe it, and the test still passed with de-duplication removed
 entirely.
 
+Tests of the client cover it through its public API against a stubbed ConfigDirector server, with
+nothing inside the SDK replaced: `StubURLProtocol` scripts the HTTP responses, and `ClientFixture`
+gives each test a base URL of its own so a client still winding down cannot consume the response the
+next test queued. Reach for a fake transport only for something the wire genuinely cannot express.
+
 Watch streams and event streams need particular care. `withTimeout` cancels the task it wraps, and
 cancelling a task that is awaiting an `AsyncStream` terminates that stream, so a timeout cannot be
 used to assert that nothing was emitted — the stream is dead afterwards either way. Collect the

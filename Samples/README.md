@@ -52,8 +52,5 @@ default means the config did not resolve.
 also decodes a JSON config into any `Decodable` type through
 `client.value(for:as:default:)`.
 
-## Until the transports land
-
-The SDK currently ships a stub transport that serves a fixed config set, so the app shows those
-values and never reaches a server. The stub serves the same keys the sample project does, so this
-screen looks the same once the real transports are hooked up.
+The app connects in streaming mode, so a value changed in the ConfigDirector dashboard appears on
+screen without restarting it.
