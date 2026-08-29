@@ -65,17 +65,18 @@ protocol Transport: Sendable {
     /// way that retrying cannot fix.
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws
 
-    /// Closes the connection without releasing the transport. It can be reconnected by calling
+    /// Drops the connection without releasing the transport. It can be reconnected by calling
     /// ``connect(context:timeout:)`` again.
-    func close()
+    func disconnect()
 
-    /// Closes the connection and releases every resource the transport holds.
-    func shutdown()
+    /// Drops the connection and releases every resource the transport holds.
+    func close()
 }
 
-/// Statuses in the 4xx range mean the request itself is wrong, an invalid SDK key for instance, so
-/// retrying it would fail the same way.
-func isStatusFatal(_ status: Int?) -> Bool {
-    guard let status else { return false }
-    return (400 ..< 500).contains(status)
+extension Int {
+    /// Whether an HTTP status means the request itself is wrong, an invalid SDK key for instance, so
+    /// retrying it would fail the same way.
+    var isFatalHTTPStatus: Bool {
+        (400 ..< 500).contains(self)
+    }
 }

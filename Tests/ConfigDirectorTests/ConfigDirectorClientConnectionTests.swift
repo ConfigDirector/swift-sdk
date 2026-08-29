@@ -11,6 +11,33 @@ struct ConfigDirectorClientConnectionTests {
         }
     }
 
+    /// The compiler is the assertion: `error` is a `ConfigDirectorError`, not an `any Error` that
+    /// would have to be cast before it could be compared.
+    @Test func failsToBeCreatedWithATypedError() {
+        do {
+            _ = try ConfigDirectorClient(clientSDKKey: "", options: .test())
+            Issue.record("expected a blank SDK key to be rejected")
+        } catch {
+            #expect(error == .missingClientSDKKey)
+        }
+    }
+
+    @Test func closesItselfWhenReleased() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+
+        do {
+            let client = try fixture.makeClient()
+            await client.initialize()
+            #expect(client.isReady)
+        }
+
+        #expect(
+            await waitUntil { fixture.streamDisconnections == 1 },
+            "a released client left its connection open"
+        )
+    }
+
     @Test func rejectsABaseURLThatIsNotAbsolute() throws {
         let baseURL = try #require(URL(string: "/client"))
         var options = ConfigDirectorClientOptions.test()

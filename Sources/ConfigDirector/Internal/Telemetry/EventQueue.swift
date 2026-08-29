@@ -18,6 +18,21 @@ struct EventQueueSnapshot<Event: Sendable>: Sendable {
     }
 }
 
+extension EventQueueSnapshot where Event: Hashable {
+    /// Collapses identical events into one entry each, carrying how many times the event occurred
+    /// over the window this snapshot covers.
+    func aggregated() -> [AggregatedEvent<Event>] {
+        var counts: [Event: Int] = [:]
+        for event in events {
+            counts[event, default: 0] += 1
+        }
+
+        return counts.map { event, count in
+            AggregatedEvent(startTime: startTime, endTime: endTime, count: count, event: event)
+        }
+    }
+}
+
 /// Holds collected events until they are reported.
 ///
 /// The queue is bounded: once it is full the oldest events are dropped to make room for new ones,
@@ -78,25 +93,5 @@ final class EventQueue<Event: Sendable>: Sendable {
 
     func clear() {
         state.withLock { $0 = State() }
-    }
-}
-
-/// Collapses the identical events in `snapshot` into one entry each, carrying how many times the
-/// event occurred over the window the snapshot covers.
-func aggregate<Event: Hashable & Sendable>(
-    _ snapshot: EventQueueSnapshot<Event>
-) -> [AggregatedEvent<Event>] {
-    var counts: [Event: Int] = [:]
-    for event in snapshot.events {
-        counts[event, default: 0] += 1
-    }
-
-    return counts.map { event, count in
-        AggregatedEvent(
-            startTime: snapshot.startTime,
-            endTime: snapshot.endTime,
-            count: count,
-            event: event
-        )
     }
 }

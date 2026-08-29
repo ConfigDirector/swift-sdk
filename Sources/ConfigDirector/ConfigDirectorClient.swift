@@ -41,7 +41,7 @@ public final class ConfigDirectorClient: Sendable {
     public convenience init(
         clientSDKKey: String,
         options: ConfigDirectorClientOptions = ConfigDirectorClientOptions()
-    ) throws {
+    ) throws(ConfigDirectorError) {
         try self.init(
             clientSDKKey: clientSDKKey,
             options: options,
@@ -57,7 +57,7 @@ public final class ConfigDirectorClient: Sendable {
         session: URLSession,
         lifecycle: any AppLifecycleObserver,
         telemetryOptions: TelemetryOptions
-    ) throws {
+    ) throws(ConfigDirectorError) {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ConfigDirectorError.missingClientSDKKey
         }
@@ -213,7 +213,7 @@ public final class ConfigDirectorClient: Sendable {
     /// streams. Call ``resumeNetwork()`` to re-establish the connection.
     public func pauseNetwork() {
         logger.debug("pauseNetwork() called, pausing the transport connection")
-        transport.close()
+        transport.disconnect()
         store.markNotReady()
     }
 
@@ -225,7 +225,8 @@ public final class ConfigDirectorClient: Sendable {
 
     /// Closes the connection, every watch stream, and every event stream.
     ///
-    /// Call this when your application shuts down. The client cannot be used afterwards.
+    /// The client closes itself when it is released, so calling this is only necessary to shut it
+    /// down while a reference to it is still held. The client cannot be used afterwards.
     public func close() {
         let wasClosed = connectionState.withLock { state -> Bool in
             defer { state.isClosed = true }
@@ -237,7 +238,11 @@ public final class ConfigDirectorClient: Sendable {
         lifecycle.stop()
         telemetry.close()
         store.close()
-        transport.shutdown()
+        transport.close()
+    }
+
+    deinit {
+        close()
     }
 
     private func connect(context: ConfigDirectorContext?, reason: ConnectReason) async {
@@ -316,7 +321,7 @@ public final class ConfigDirectorClient: Sendable {
         }
     }
 
-    private static func resolveBaseURL(_ baseURL: URL?) throws -> URL {
+    private static func resolveBaseURL(_ baseURL: URL?) throws(ConfigDirectorError) -> URL {
         guard let baseURL else { return Constants.clientBaseURL }
         guard baseURL.scheme != nil, baseURL.host != nil else {
             throw ConfigDirectorError.invalidBaseURL(baseURL)

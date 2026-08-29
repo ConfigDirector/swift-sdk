@@ -16,7 +16,7 @@ struct PollingTransportTests {
 
     @Test func postsThePayloadAndDeliversConfigState() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json(configSetJSON(greeting: "hello")))
 
         try await transport.connect(context: ConfigDirectorContext(id: "user-1"), timeout: 1)
@@ -39,7 +39,7 @@ struct PollingTransportTests {
 
     @Test func refetchesOnThePollingInterval() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
-        defer { transport.shutdown() }
+        defer { transport.close() }
         for greeting in ["one", "two", "three", "four"] {
             fixture.enqueue(.json(configSetJSON(greeting: greeting)))
         }
@@ -52,7 +52,7 @@ struct PollingTransportTests {
 
     @Test func sendsTheTimestampFromThePreviousResponse() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(
             .json(configSetJSON(greeting: "one", timestamp: "2026-08-29T00:00:00Z")),
             .json(configSetJSON(greeting: "two"))
@@ -71,7 +71,7 @@ struct PollingTransportTests {
             options: fixture.options,
             onConfigSet: fixture.onConfigSet
         )
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json(configSetJSON(greeting: "hello")), .json(configSetJSON(greeting: "again")))
 
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
@@ -83,7 +83,7 @@ struct PollingTransportTests {
 
     @Test func throwsAndStopsPollingWhenTheServerRejectsTheRequest() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json("invalid client sdk key", statusCode: 401))
 
         let error = await #expect(throws: ConfigDirectorError.self) {
@@ -103,7 +103,7 @@ struct PollingTransportTests {
 
     @Test func ignoresLaterConnectAttemptsAfterAnUnrecoverableFailure() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json("", statusCode: 403), .json(configSetJSON(greeting: "hello")))
 
         _ = await #expect(throws: ConfigDirectorError.self) {
@@ -117,7 +117,7 @@ struct PollingTransportTests {
 
     @Test func keepsPollingAfterATransientFailure() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json("", statusCode: 503), .json(configSetJSON(greeting: "hello")))
 
         let error = await #expect(throws: ConfigDirectorError.self) {
@@ -136,7 +136,7 @@ struct PollingTransportTests {
 
     @Test func throwsWhenTheResponseIsNotAConfigSet() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json("not json"))
 
         _ = await #expect(throws: ConfigDirectorError.self) {
@@ -148,7 +148,7 @@ struct PollingTransportTests {
 
     @Test func ignoresASuccessStatusThatCarriesNoConfigState() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json("", statusCode: 204))
 
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
@@ -156,23 +156,23 @@ struct PollingTransportTests {
         #expect(fixture.received.isEmpty)
     }
 
-    @Test func closeStopsPolling() async throws {
+    @Test func disconnectingStopsPolling() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.json(configSetJSON(greeting: "hello")))
 
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
-        transport.close()
+        transport.disconnect()
 
         await settle(0.3)
         #expect(fixture.recorded.count == 1)
     }
 
-    @Test func doesNotConnectAfterShutdown() async throws {
+    @Test func doesNotConnectAfterBeingClosed() async throws {
         let (fixture, transport) = makeTransport()
         fixture.enqueue(.json(configSetJSON(greeting: "hello")))
 
-        transport.shutdown()
+        transport.close()
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
 
         #expect(fixture.recorded.isEmpty)

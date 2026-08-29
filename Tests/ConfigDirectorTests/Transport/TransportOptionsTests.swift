@@ -53,8 +53,8 @@ struct TransportOptionsTests {
         #expect(delay(100) == 512)
     }
 
-    @Test(arguments: [(nil, false), (200, false), (399, false), (400, true), (499, true), (500, false)])
-    func treatsOnlyClientErrorsAsUnrecoverable(status: Int?, isFatal: Bool) {
-        #expect(isStatusFatal(status) == isFatal)
+    @Test(arguments: [(200, false), (399, false), (400, true), (499, true), (500, false)])
+    func treatsOnlyClientErrorsAsUnrecoverable(status: Int, isFatal: Bool) {
+        #expect(status.isFatalHTTPStatus == isFatal)
     }
 }

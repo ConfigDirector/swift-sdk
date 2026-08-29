@@ -1,7 +1,7 @@
 import Foundation
 
 /// The type a config was declared with in the ConfigDirector dashboard.
-enum ConfigType: String, Sendable, Codable {
+enum ConfigType: String, Sendable, Codable, CaseIterable {
     case custom
     case boolean
     case string

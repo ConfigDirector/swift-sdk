@@ -66,7 +66,7 @@ final class HTTPEventReporter: EventReporter {
             events: report.snapshot.events.map { $0.compacted() },
             droppedCount: report.snapshot.droppedCount
         )
-        let aggregated = aggregate(compacted)
+        let aggregated = compacted.aggregated()
 
         guard !aggregated.isEmpty || report.snapshot.droppedCount > 0 else { return .succeeded }
 
@@ -114,7 +114,7 @@ final class HTTPEventReporter: EventReporter {
 
         guard let status = (response as? HTTPURLResponse)?.statusCode else { return .failed }
 
-        if isStatusFatal(status) {
+        if status.isFatalHTTPStatus {
             logger.warn("""
             [EventReporter] Received a fatal status response (\(status)) from the telemetry endpoint. \
             No more telemetry data will be sent.

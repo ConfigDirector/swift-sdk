@@ -58,7 +58,7 @@ struct EventQueueTests {
         }
         let snapshot = queue.takeSnapshot()
 
-        let aggregated = aggregate(snapshot).sorted { $0.count > $1.count }
+        let aggregated = snapshot.aggregated().sorted { $0.count > $1.count }
 
         #expect(aggregated.map(\.event) == ["a", "b"])
         #expect(aggregated.map(\.count) == [3, 1])
@@ -67,6 +67,6 @@ struct EventQueueTests {
     }
 
     @Test func aggregatingNothingProducesNothing() {
-        #expect(aggregate(EventQueue<String>().takeSnapshot()).isEmpty)
+        #expect(EventQueue<String>().takeSnapshot().aggregated().isEmpty)
     }
 }

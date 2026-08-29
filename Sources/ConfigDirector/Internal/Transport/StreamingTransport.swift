@@ -6,7 +6,7 @@ final class StreamingTransport: Transport {
     private struct State {
         var eventSource: EventSourceClient?
         var consumer: Task<Void, Never>?
-        var isShutDown = false
+        var isClosed = false
     }
 
     private let options: TransportOptions
@@ -21,7 +21,7 @@ final class StreamingTransport: Transport {
     }
 
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
-        guard !state.withLock({ $0.isShutDown }) else { return }
+        guard !state.withLock({ $0.isClosed }) else { return }
 
         release()
 
@@ -59,12 +59,12 @@ final class StreamingTransport: Transport {
         try await connected.wait(timeout: timeout)
     }
 
-    func close() {
+    func disconnect() {
         state.withLock { $0.eventSource }?.close()
     }
 
-    func shutdown() {
-        state.withLock { $0.isShutDown = true }
+    func close() {
+        state.withLock { $0.isClosed = true }
         release()
     }
 
@@ -99,7 +99,7 @@ final class StreamingTransport: Transport {
         _ reconnection: EventSourceReconnectionState,
         _ connected: ConnectionGate
     ) -> Bool {
-        guard isStatusFatal(reconnection.statusCode) else { return true }
+        guard reconnection.statusCode?.isFatalHTTPStatus == true else { return true }
 
         let error = Self.fatalError(reconnection)
         if !connected.settle(.failure(error)) {

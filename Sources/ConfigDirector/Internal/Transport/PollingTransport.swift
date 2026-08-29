@@ -9,7 +9,7 @@ final class PollingTransport: Transport {
         var polling: Task<Void, Never>?
         var lastUpdateTimestamp: String?
         var hasFatalError = false
-        var isShutDown = false
+        var isClosed = false
     }
 
     private let options: TransportOptions
@@ -46,8 +46,8 @@ final class PollingTransport: Transport {
     }
 
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
-        let (isShutDown, hasFatalError) = state.withLock { ($0.isShutDown, $0.hasFatalError) }
-        guard !isShutDown else { return }
+        let (isClosed, hasFatalError) = state.withLock { ($0.isClosed, $0.hasFatalError) }
+        guard !isClosed else { return }
         guard !hasFatalError else {
             options.logger.warn("""
             [PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.
@@ -55,7 +55,7 @@ final class PollingTransport: Transport {
             return
         }
 
-        close()
+        disconnect()
 
         // A transient failure on the first fetch must not leave the client without a connection:
         // polling starts regardless of how that fetch went.
@@ -64,16 +64,16 @@ final class PollingTransport: Transport {
         try await fetch(context: context, timeout: timeout)
     }
 
-    func close() {
+    func disconnect() {
         state.withLock { state in
             defer { state.polling = nil }
             return state.polling
         }?.cancel()
     }
 
-    func shutdown() {
-        state.withLock { $0.isShutDown = true }
-        close()
+    func close() {
+        state.withLock { $0.isClosed = true }
+        disconnect()
     }
 
     private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval) {
@@ -139,7 +139,7 @@ final class PollingTransport: Transport {
         let status = response.statusCode
         guard !(200 ..< 300).contains(status) else { return }
 
-        guard isStatusFatal(status) else {
+        guard status.isFatalHTTPStatus else {
             throw ConfigDirectorError.connectionFailed(
                 message: "Connection failed with status: \(status)",
                 statusCode: status
@@ -147,7 +147,7 @@ final class PollingTransport: Transport {
         }
 
         state.withLock { $0.hasFatalError = true }
-        close()
+        disconnect()
 
         let text = String(decoding: body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         throw ConfigDirectorError.connectionFailed(

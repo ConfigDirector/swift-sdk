@@ -16,7 +16,7 @@ struct StreamingTransportTests {
 
     @Test func postsThePayloadAndDeliversConfigStateFromTheStream() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(chunks: [event(configSetJSON(greeting: "hello"))], endsStream: false))
 
         try await transport.connect(context: ConfigDirectorContext(id: "user-1"), timeout: 1)
@@ -41,7 +41,7 @@ struct StreamingTransportTests {
 
     @Test func returnsAsSoonAsTheStreamOpensRatherThanWaitingForConfigState() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(endsStream: false))
 
         let startedAt = Date()
@@ -54,7 +54,7 @@ struct StreamingTransportTests {
 
     @Test func throwsAndStopsWhenTheServerRejectsTheConnection() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(statusCode: 401))
 
         let error = await #expect(throws: ConfigDirectorError.self) {
@@ -73,7 +73,7 @@ struct StreamingTransportTests {
 
     @Test func retriesAfterATransientFailure() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(
             .init(statusCode: 500),
             .init(chunks: [event(configSetJSON(greeting: "hello"))], endsStream: false)
@@ -87,7 +87,7 @@ struct StreamingTransportTests {
 
     @Test func returnsWithoutThrowingWhenTheConnectionNeverOpensInTime() async throws {
         let (fixture, transport) = makeTransport(retryDelay: { _ in 5 })
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(statusCode: 500), .init(statusCode: 500))
 
         let startedAt = Date()
@@ -100,7 +100,7 @@ struct StreamingTransportTests {
 
     @Test func keepsStreamingWhenAConfigSetCannotBeParsed() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(
             chunks: [event("not json"), event(configSetJSON(greeting: "hello"))],
             endsStream: false
@@ -115,7 +115,7 @@ struct StreamingTransportTests {
 
     @Test func reconnectsWhenTheStreamDropsAndKeepsDelivering() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(
             .init(chunks: [event(configSetJSON(greeting: "first"))]),
             .init(chunks: [event(configSetJSON(greeting: "second"))], endsStream: false)
@@ -127,28 +127,28 @@ struct StreamingTransportTests {
         #expect(fixture.received.map { $0.configs["greeting"]?.value } == ["first", "second"])
     }
 
-    @Test func closeStopsTheConnectionFromReconnecting() async throws {
+    @Test func disconnectingStopsTheConnectionFromReconnecting() async throws {
         let (fixture, transport) = makeTransport(retryDelay: { _ in 0.2 })
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(chunks: [event(configSetJSON(greeting: "first"))]))
 
         try await transport.connect(context: ConfigDirectorContext(), timeout: 2)
-        transport.close()
+        transport.disconnect()
 
         await settle(0.8)
         #expect(fixture.recorded.count == 1)
     }
 
-    @Test func connectsAgainAfterBeingClosed() async throws {
+    @Test func connectsAgainAfterBeingDisconnected() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(
             .init(endsStream: false),
             .init(chunks: [event(configSetJSON(greeting: "hello"))], endsStream: false)
         )
 
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
-        transport.close()
+        transport.disconnect()
         try await transport.connect(context: ConfigDirectorContext(id: "user-2"), timeout: 1)
 
         #expect(await fixture.waitForConfigSets(1))
@@ -158,7 +158,7 @@ struct StreamingTransportTests {
 
     @Test func releasesThePreviousStreamWhenConnectingAgain() async throws {
         let (fixture, transport) = makeTransport()
-        defer { transport.shutdown() }
+        defer { transport.close() }
         fixture.enqueue(.init(endsStream: false), .init(endsStream: false))
 
         try await transport.connect(context: ConfigDirectorContext(id: "user-1"), timeout: 1)
@@ -168,11 +168,11 @@ struct StreamingTransportTests {
         #expect(fixture.recorded.count == 2)
     }
 
-    @Test func doesNotConnectAfterShutdown() async throws {
+    @Test func doesNotConnectAfterBeingClosed() async throws {
         let (fixture, transport) = makeTransport()
         fixture.enqueue(.init(endsStream: false))
 
-        transport.shutdown()
+        transport.close()
         try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
 
         await settle(0.2)
