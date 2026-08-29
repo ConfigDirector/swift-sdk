@@ -1,6 +1,7 @@
 included:
   - Sources
   - Tests
+  - Samples
 
 disabled_rules:
   - todo

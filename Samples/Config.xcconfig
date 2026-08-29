@@ -1,0 +1,9 @@
+// Defaults for the sample app. Put your own values in Config.local.xcconfig, which is git-ignored
+// and overrides everything below — see Config.local.example.xcconfig.
+
+CONFIGDIRECTOR_SDK_KEY =
+CONFIGDIRECTOR_USER_ID =
+CONFIGDIRECTOR_USER_NAME =
+CONFIGDIRECTOR_USER_ROLE =
+
+#include? "Config.local.xcconfig"

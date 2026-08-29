@@ -97,3 +97,8 @@ extension ConfigDirectorClientOptions {
         )
     }
 }
+
+struct Greeting: Codable, Equatable {
+    var greeting: String
+    var retries: Int
+}

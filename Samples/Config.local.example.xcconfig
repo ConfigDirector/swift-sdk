@@ -1,0 +1,7 @@
+// Copy this file to Config.local.xcconfig and fill in the client SDK key from your ConfigDirector
+// dashboard. Leave the context values empty to evaluate configs without a context.
+
+CONFIGDIRECTOR_SDK_KEY = your_sdk_key_here
+CONFIGDIRECTOR_USER_ID =
+CONFIGDIRECTOR_USER_NAME =
+CONFIGDIRECTOR_USER_ROLE =

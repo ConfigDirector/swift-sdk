@@ -77,3 +77,20 @@ Watch streams and event streams need particular care. `withTimeout` cancels the 
 cancelling a task that is awaiting an `AsyncStream` terminates that stream, so a timeout cannot be
 used to assert that nothing was emitted — the stream is dead afterwards either way. Collect the
 whole sequence of emissions and assert on it instead.
+
+## Sample app
+
+[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) is an iOS app that
+consumes the SDK as a local Swift package, so a breaking API change fails its build. See
+[Samples/README.md](Samples/README.md) for how to point it at your own ConfigDirector project.
+
+Building it needs no SDK key — without one the app says so and runs anyway:
+
+```bash
+xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+  -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build
+```
+
+The `.xcodeproj` is written by hand rather than generated, so it needs no extra tooling to open. It
+uses a file-system-synchronized group, which means adding or removing a source file under
+`Samples/ConfigDirectorSample` does not touch the project file at all.

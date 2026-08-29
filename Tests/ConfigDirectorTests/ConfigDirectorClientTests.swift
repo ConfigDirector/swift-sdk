@@ -299,13 +299,17 @@ struct ConfigDirectorClientTests {
         await client.initialize(context: ConfigDirectorContext(id: "user-123"))
 
         #expect(client.isReady)
-        #expect(client.value(for: "dark-mode", default: false) == true)
-        #expect(client.value(for: "welcome-message", default: "") == "Hello from ConfigDirector")
-        #expect(client.value(for: "max-retries", default: 0) == 3)
-        #expect(client.value(for: "discount-rate", default: 0.0) == 0.15)
+        #expect(client.value(for: "temporary-feature-flag", default: false) == true)
+        #expect(client.value(for: "permanent-kill-switch", default: true) == false)
+        #expect(client.value(for: "integer-config", default: 0) == 42)
+        #expect(client.value(for: "day-of-the-week-config", default: "") == "Wednesday")
         #expect(
-            client.value(for: "theme", as: Theme.self, default: Theme(primaryColor: "", cornerRadius: 0))
-                == Theme(primaryColor: "#3366FF", cornerRadius: 8)
+            client.value(
+                for: "json-value-config",
+                as: Greeting.self,
+                default: Greeting(greeting: "", retries: 0)
+            )
+                == Greeting(greeting: "Hello from ConfigDirector", retries: 3)
         )
     }
 }

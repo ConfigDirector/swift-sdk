@@ -105,6 +105,23 @@ extension ConfigDirectorContext.TraitValue: ExpressibleByNilLiteral {
     }
 }
 
+extension ConfigDirectorContext.TraitValue: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case let .string(value): value
+        case let .int(value): String(value)
+        case let .double(value): String(value)
+        case let .bool(value): String(value)
+        case let .array(values): "[" + values.map(\.description).joined(separator: ", ") + "]"
+        case let .dictionary(values):
+            "[" + values.sorted { $0.key < $1.key }
+                .map { "\($0.key): \($0.value)" }
+                .joined(separator: ", ") + "]"
+        case .null: "null"
+        }
+    }
+}
+
 extension ConfigDirectorContext.TraitValue: Encodable {
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()

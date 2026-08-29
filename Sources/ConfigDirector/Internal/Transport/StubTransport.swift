@@ -1,6 +1,9 @@
 import Foundation
 
 /// Serves a fixed config set so the public API can be exercised before the real transports exist.
+///
+/// The keys are the ones in the ConfigDirector sample project, so the sample app shows the same
+/// values here that it will once it talks to a server.
 struct StubTransport: Transport {
     private let onConfigSet: ConfigSetHandler
 
@@ -20,28 +23,40 @@ struct StubTransport: Transport {
         environmentID: "stub-environment",
         projectID: "stub-project",
         configs: [
-            "dark-mode": ConfigState(
-                id: "1", key: "dark-mode", type: .boolean, value: "true", valueID: "1-on"
+            "temporary-feature-flag": ConfigState(
+                id: "1",
+                key: "temporary-feature-flag",
+                type: .boolean,
+                value: "true",
+                valueID: "1-on"
             ),
-            "welcome-message": ConfigState(
+            "permanent-kill-switch": ConfigState(
                 id: "2",
-                key: "welcome-message",
+                key: "permanent-kill-switch",
+                type: .boolean,
+                value: "false",
+                valueID: "2-off"
+            ),
+            "integer-config": ConfigState(
+                id: "3",
+                key: "integer-config",
+                type: .integer,
+                value: "42",
+                valueID: "3-forty-two"
+            ),
+            "day-of-the-week-config": ConfigState(
+                id: "4",
+                key: "day-of-the-week-config",
                 type: .string,
-                value: "Hello from ConfigDirector",
-                valueID: "2-greeting"
+                value: "Wednesday",
+                valueID: "4-wednesday"
             ),
-            "max-retries": ConfigState(
-                id: "3", key: "max-retries", type: .integer, value: "3", valueID: "3-three"
-            ),
-            "discount-rate": ConfigState(
-                id: "4", key: "discount-rate", type: .float, value: "0.15", valueID: "4-fifteen"
-            ),
-            "theme": ConfigState(
+            "json-value-config": ConfigState(
                 id: "5",
-                key: "theme",
+                key: "json-value-config",
                 type: .json,
-                value: ##"{"primaryColor":"#3366FF","cornerRadius":8}"##,
-                valueID: "5-blue"
+                value: ##"{"greeting":"Hello from ConfigDirector","retries":3}"##,
+                valueID: "5-greeting"
             ),
         ]
     )

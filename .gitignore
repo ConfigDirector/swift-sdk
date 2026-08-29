@@ -3,3 +3,5 @@
 .swiftpm/
 DerivedData/
 *.xcuserstate
+
+Samples/Config.local.xcconfig
