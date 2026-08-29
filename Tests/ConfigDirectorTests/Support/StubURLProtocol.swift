@@ -20,11 +20,13 @@ final class StubURLProtocol: URLProtocol {
         var method: String?
         var headers: [String: String]
         var body: String?
+        var timeout: TimeInterval
     }
 
     private struct State {
         var queues: [String: [Response]] = [:]
         var recorded: [String: [RecordedRequest]] = [:]
+        var cancelled: [String: Int] = [:]
     }
 
     private static let state = Locked(State())
@@ -35,6 +37,11 @@ final class StubURLProtocol: URLProtocol {
 
     static func recorded(for url: URL) -> [RecordedRequest] {
         state.withLock { $0.recorded[url.absoluteString] ?? [] }
+    }
+
+    /// How many connections to `url` were cancelled by the client rather than ended by the server.
+    static func cancelled(for url: URL) -> Int {
+        state.withLock { $0.cancelled[url.absoluteString] ?? 0 }
     }
 
     static func makeSession() -> URLSession {
@@ -77,7 +84,10 @@ final class StubURLProtocol: URLProtocol {
         }
     }
 
-    override func stopLoading() {}
+    override func stopLoading() {
+        let key = request.url?.absoluteString ?? ""
+        Self.state.withLock { $0.cancelled[key, default: 0] += 1 }
+    }
 
     /// Takes the next scripted response, defaulting to one that stays open so a client that
     /// reconnects more often than the test scripted does not spin.
@@ -89,7 +99,8 @@ final class StubURLProtocol: URLProtocol {
                 RecordedRequest(
                     method: request.httpMethod,
                     headers: request.allHTTPHeaderFields ?? [:],
-                    body: body(of: request)
+                    body: body(of: request),
+                    timeout: request.timeoutInterval
                 )
             )
 

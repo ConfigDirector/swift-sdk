@@ -69,3 +69,15 @@ extension Array where Element: Sendable {
         }
     }
 }
+
+/// Polls `condition` until it holds, rather than sleeping for a fixed time and hoping.
+func waitUntil(timeout: TimeInterval = 2, _ condition: @escaping @Sendable () -> Bool) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if condition() {
+            return true
+        }
+        await settle(0.01)
+    }
+    return condition()
+}
