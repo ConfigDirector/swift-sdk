@@ -6,6 +6,13 @@ included:
 disabled_rules:
   - todo
   - trailing_comma
+  # Decoding bytes off the network has to be lossy: the server-sent events spec replaces malformed
+  # sequences rather than rejecting the stream, which is what String(decoding:as:) does and what the
+  # failable String(bytes:encoding:) this rule prefers does not.
+  - optional_data_string_conversion
+  # The rule does not account for `override`: a `class func` inherited from a superclass cannot be
+  # overridden with `static`, even in a final class.
+  - static_over_final_class
 
 opt_in_rules:
   - array_init

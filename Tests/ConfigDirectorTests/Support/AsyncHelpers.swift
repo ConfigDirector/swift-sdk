@@ -58,3 +58,14 @@ extension AsyncStream where Element: Sendable {
 func settle(_ seconds: TimeInterval = 0.15) async {
     try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
 }
+
+extension Array where Element: Sendable {
+    /// Drains an `AsyncStream` into an array. Paired with `withTimeout` so a stream that never
+    /// finishes fails the test instead of hanging the run.
+    init(_ stream: AsyncStream<Element>) async {
+        self.init()
+        for await element in stream {
+            append(element)
+        }
+    }
+}
