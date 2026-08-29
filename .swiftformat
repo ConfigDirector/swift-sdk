@@ -1,0 +1,10 @@
+--swiftversion 6.0
+--maxwidth 110
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections preserve
+--closingparen balanced
+--commas always
+--self remove
+--stripunusedargs closure-only
+--exclude .build

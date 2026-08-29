@@ -1,0 +1,47 @@
+included:
+  - Sources
+  - Tests
+
+disabled_rules:
+  - todo
+  - trailing_comma
+
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - implicitly_unwrapped_optional
+  - last_where
+  - literal_expression_end_indentation
+  - modifier_order
+  - multiline_arguments
+  - operator_usage_whitespace
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - vertical_parameter_alignment_on_call
+  - yoda_condition
+
+line_length:
+  warning: 110
+  error: 130
+  ignores_comments: false
+
+type_body_length:
+  warning: 300
+
+file_length:
+  warning: 400
+
+identifier_name:
+  excluded:
+    - id
