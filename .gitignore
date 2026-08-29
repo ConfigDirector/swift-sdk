@@ -6,3 +6,4 @@ DerivedData/
 xcuserdata/
 
 Samples/Config.local.xcconfig
+.vscode

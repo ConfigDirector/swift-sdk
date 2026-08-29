@@ -9,6 +9,7 @@ final class ClientFixture: Sendable {
     let pollURL: URL
 
     private let session = StubURLProtocol.makeSession()
+    private let notifications = NotificationCenter()
 
     init() {
         baseURL = URL(string: "https://example.test/\(UUID().uuidString)/")!
@@ -19,7 +20,9 @@ final class ClientFixture: Sendable {
     func makeClient(
         mode: ConnectionMode = .streaming,
         timeout: TimeInterval = 1,
-        pollingInterval: TimeInterval = 60
+        pollingInterval: TimeInterval = 60,
+        pausesWhileBackgrounded: Bool = true,
+        lifecycle: (any AppLifecycleObserver)? = nil
     ) throws -> ConfigDirectorClient {
         try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
@@ -28,12 +31,26 @@ final class ClientFixture: Sendable {
                     mode: mode,
                     pollingInterval: pollingInterval,
                     timeout: timeout,
-                    baseURL: baseURL
+                    baseURL: baseURL,
+                    pausesWhileBackgrounded: pausesWhileBackgrounded
                 ),
                 logger: ConsoleLogger(level: .off)
             ),
-            session: session
+            session: session,
+            lifecycle: lifecycle ?? NotificationCenterLifecycleObserver(
+                center: notifications,
+                backgroundNotification: .testDidEnterBackground,
+                foregroundNotification: .testWillEnterForeground
+            )
         )
+    }
+
+    func enterBackground() {
+        notifications.post(name: .testDidEnterBackground, object: nil)
+    }
+
+    func returnToForeground() {
+        notifications.post(name: .testWillEnterForeground, object: nil)
     }
 
     /// Opens a server-sent events stream that sends `configSets` and then stays connected.
@@ -68,6 +85,29 @@ final class ClientFixture: Sendable {
     var streamDisconnections: Int {
         StubURLProtocol.cancelled(for: streamURL)
     }
+}
+
+/// Reports whether the client is observing the app lifecycle, which no notification can show: the
+/// client ignores what it receives after being closed whether or not it stopped observing.
+final class RecordingLifecycleObserver: AppLifecycleObserver {
+    private let observing = Locked(false)
+
+    var isObserving: Bool {
+        observing.withLock { $0 }
+    }
+
+    func start(onChange _: @escaping @Sendable (AppLifecyclePhase) -> Void) {
+        observing.withLock { $0 = true }
+    }
+
+    func stop() {
+        observing.withLock { $0 = false }
+    }
+}
+
+extension Notification.Name {
+    static let testDidEnterBackground = Notification.Name("test.didEnterBackground")
+    static let testWillEnterForeground = Notification.Name("test.willEnterForeground")
 }
 
 /// The config set the stubbed server serves, covering every config type the SDK evaluates.

@@ -17,12 +17,15 @@ public final class ConfigDirectorClient: Sendable {
     private struct ConnectionState {
         var isInitializing = false
         var isClosed = false
+        var hasConnected = false
+        var isPausedWhileBackgrounded = false
     }
 
     private let logger: any ConfigDirectorLogger
     private let timeout: TimeInterval
     private let store: ConfigStore
     private let transport: any Transport
+    private let lifecycle: any AppLifecycleObserver
     private let connectionState = Locked(ConnectionState())
 
     /// Creates a client for `clientSDKKey`, the client SDK key from the ConfigDirector dashboard.
@@ -40,11 +43,17 @@ public final class ConfigDirectorClient: Sendable {
         try self.init(
             clientSDKKey: clientSDKKey,
             options: options,
-            session: URLSession(configuration: .default)
+            session: URLSession(configuration: .default),
+            lifecycle: NotificationCenterLifecycleObserver()
         )
     }
 
-    init(clientSDKKey: String, options: ConfigDirectorClientOptions, session: URLSession) throws {
+    init(
+        clientSDKKey: String,
+        options: ConfigDirectorClientOptions,
+        session: URLSession,
+        lifecycle: any AppLifecycleObserver
+    ) throws {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ConfigDirectorError.missingClientSDKKey
         }
@@ -68,6 +77,11 @@ public final class ConfigDirectorClient: Sendable {
             ),
             onConfigSet: { [store] configSet in store.handleConfigSet(configSet) }
         )
+        self.lifecycle = lifecycle
+
+        if options.connection.pausesWhileBackgrounded {
+            lifecycle.start { [weak self] phase in self?.handle(phase) }
+        }
     }
 
     /// The context the client is currently evaluating configs against, or `nil` when there is none.
@@ -202,6 +216,7 @@ public final class ConfigDirectorClient: Sendable {
         guard !wasClosed else { return }
 
         logger.debug("close() called, closing the connection to the server and removing all observers")
+        lifecycle.stop()
         store.close()
         transport.shutdown()
     }
@@ -217,6 +232,7 @@ public final class ConfigDirectorClient: Sendable {
             return
         }
 
+        connectionState.withLock { $0.hasConnected = true }
         store.setContext(context)
 
         // The transport may have spent part of the budget connecting; only the remainder is left to
@@ -233,6 +249,32 @@ public final class ConfigDirectorClient: Sendable {
             succeeds.
             """)
             return
+        }
+    }
+
+    private func handle(_ phase: AppLifecyclePhase) {
+        switch phase {
+        case .background:
+            let shouldPause = connectionState.withLock { state -> Bool in
+                guard !state.isClosed, state.hasConnected else { return false }
+                state.isPausedWhileBackgrounded = true
+                return true
+            }
+
+            guard shouldPause else { return }
+            logger.info("The app entered the background, pausing the connection to the server")
+            pauseNetwork()
+
+        case .foreground:
+            let shouldResume = connectionState.withLock { state -> Bool in
+                guard !state.isClosed, state.isPausedWhileBackgrounded else { return false }
+                state.isPausedWhileBackgrounded = false
+                return true
+            }
+
+            guard shouldResume else { return }
+            logger.info("The app returned to the foreground, resuming the connection to the server")
+            Task { await resumeNetwork() }
         }
     }
 

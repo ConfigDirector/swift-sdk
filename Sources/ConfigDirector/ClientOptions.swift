@@ -38,6 +38,9 @@ public struct ConnectionOptions: Sendable {
     /// Mobile operating systems terminate background connections on their own, so this is enabled by
     /// default. Set it to `false` to manage the connection yourself with
     /// ``ConfigDirectorClient/pauseNetwork()`` and ``ConfigDirectorClient/resumeNetwork()``.
+    ///
+    /// It has no effect on macOS, where an app keeps running, and keeps its connections, once it
+    /// leaves the foreground.
     public var pausesWhileBackgrounded: Bool
 
     public init(
