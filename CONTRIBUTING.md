@@ -78,6 +78,25 @@ cancelling a task that is awaiting an `AsyncStream` terminates that stream, so a
 used to assert that nothing was emitted — the stream is dead afterwards either way. Collect the
 whole sequence of emissions and assert on it instead.
 
+## CI and the pre-push hook
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every branch and pull request: build
+and test, both linters, a compile for iOS, tvOS and watchOS, and a build of the sample app.
+
+The same jobs run locally as a `pre-push` hook, in that order and with the same commands. Wire it
+up once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It checks the working tree rather than the commits being pushed, so uncommitted changes are
+included. Bypass it for a single push with `git push --no-verify`.
+
+The cheap checks run first, so an unformatted file fails in seconds instead of after the platform
+matrix. It needs SwiftLint and SwiftFormat on `PATH` and refuses to run without them, rather than
+silently skipping a check CI will fail on.
+
 ## Sample app
 
 [Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) is an iOS app that

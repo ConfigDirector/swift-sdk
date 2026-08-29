@@ -1,0 +1,106 @@
+#!/usr/bin/env sh
+#
+# Runs the same jobs CI runs, before allowing a push.
+#
+#   swiftformat -> swiftlint -> swift build -> swift test -> iOS/tvOS/watchOS -> sample app
+#
+# Install it with:  git config core.hooksPath .githooks
+# Bypass it for a single push with:  git push --no-verify
+#
+# Note: this checks the working tree, not the commits being pushed. Uncommitted changes are
+# included, which is usually what you want and occasionally surprising.
+
+set -eu
+
+# --- skip when the push only deletes remote refs -----------------------------------------
+# git feeds "<local ref> <local sha> <remote ref> <remote sha>" per ref on stdin. A deletion
+# has an all-zero local sha and nothing to check. Skip the read entirely when run from a
+# terminal, so the hook stays runnable by hand.
+if [ ! -t 0 ]; then
+    saw_ref=0
+    only_deletes=1
+    while read -r _local_ref local_sha _remote_ref _remote_sha; do
+        saw_ref=1
+        case "$local_sha" in
+            *[!0]*) only_deletes=0 ;;
+        esac
+    done
+    if [ "$saw_ref" -eq 1 ] && [ "$only_deletes" -eq 1 ]; then
+        echo "pre-push: deleting refs only, nothing to check."
+        exit 0
+    fi
+fi
+
+cd "$(git rev-parse --show-toplevel)"
+
+# GUI git clients (Xcode, VS Code, Fork, Tower) often start without the shell profile, so
+# Homebrew's bin directory may not be on PATH even though the tools are installed.
+for candidate in /opt/homebrew/bin /usr/local/bin; do
+    case ":$PATH:" in
+        *":$candidate:"*) ;;
+        *) [ -d "$candidate" ] && PATH="$PATH:$candidate" ;;
+    esac
+done
+export PATH
+
+for tool in swift xcodebuild swiftformat swiftlint; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "pre-push: '$tool' was not found on PATH." >&2
+        case "$tool" in
+            swiftformat|swiftlint)
+                echo "  Install it with: brew install swiftlint swiftformat" >&2
+                ;;
+            *)
+                echo "  Install Xcode, or select it with: sudo xcode-select -s /Applications/Xcode.app" >&2
+                ;;
+        esac
+        echo "  Or bypass with: git push --no-verify" >&2
+        exit 1
+    fi
+done
+
+if [ -t 1 ]; then
+    bold=$(printf '\033[1m')
+    red=$(printf '\033[31m')
+    green=$(printf '\033[32m')
+    reset=$(printf '\033[0m')
+else
+    bold='' red='' green='' reset=''
+fi
+
+run() {
+    label=$1
+    shift
+    printf '\n%s> %s%s\n' "$bold" "$label" "$reset"
+    if ! "$@"; then
+        printf '\n%spre-push failed at: %s%s\n' "$red" "$label" "$reset" >&2
+        printf '  Fix the failure, or bypass with: git push --no-verify\n' >&2
+        exit 1
+    fi
+}
+
+# Cheapest first, so an unformatted file fails in seconds rather than after the whole matrix.
+run "swiftformat --lint" swiftformat --lint .
+run "swiftlint" swiftlint lint --strict
+run "swift build" swift build
+run "swift test" swift test
+
+# The tests only run on the host, so these are what catch a change that does not compile
+# elsewhere. Each is the same command the platforms job in CI runs.
+build_for_platform() {
+    swift build \
+        --sdk "$(xcrun --sdk "$1" --show-sdk-path)" \
+        -Xswiftc -target -Xswiftc "$2"
+}
+
+run "build (iOS)" build_for_platform iphoneos arm64-apple-ios15.0
+run "build (tvOS)" build_for_platform appletvos arm64-apple-tvos15.0
+run "build (watchOS)" build_for_platform watchos arm64_32-apple-watchos8.0
+
+run "sample app" xcodebuild build \
+    -project Samples/ConfigDirectorSample.xcodeproj \
+    -scheme ConfigDirectorSample \
+    -destination 'generic/platform=iOS Simulator' \
+    -quiet
+
+printf '\n%spre-push checks passed%s\n' "$green" "$reset"
