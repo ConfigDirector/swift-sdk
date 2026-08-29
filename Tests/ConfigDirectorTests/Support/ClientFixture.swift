@@ -7,14 +7,25 @@ final class ClientFixture: Sendable {
     let baseURL: URL
     let streamURL: URL
     let pollURL: URL
+    let telemetryURL: URL
 
     private let session = StubURLProtocol.makeSession()
     private let notifications = NotificationCenter()
 
-    init() {
+    init(telemetryStatus: Int? = 202) {
         baseURL = URL(string: "https://example.test/\(UUID().uuidString)/")!
         streamURL = URL(string: "client/sse/v1", relativeTo: baseURL)!.absoluteURL
         pollURL = URL(string: "client/polling/v1", relativeTo: baseURL)!.absoluteURL
+        telemetryURL = URL(string: "client/telemetry/v1", relativeTo: baseURL)!.absoluteURL
+
+        // Telemetry goes out on its own schedule in every test, so the endpoint always answers.
+        // A nil status leaves it unresponsive, which is how a test proves nothing waits on it.
+        if let telemetryStatus {
+            StubURLProtocol.enqueue(
+                Array(repeating: .json("{}", statusCode: telemetryStatus), count: 20),
+                for: telemetryURL
+            )
+        }
     }
 
     func makeClient(
@@ -22,7 +33,8 @@ final class ClientFixture: Sendable {
         timeout: TimeInterval = 1,
         pollingInterval: TimeInterval = 60,
         pausesWhileBackgrounded: Bool = true,
-        lifecycle: (any AppLifecycleObserver)? = nil
+        lifecycle: (any AppLifecycleObserver)? = nil,
+        telemetryFlushInterval: TimeInterval = 0.05
     ) throws -> ConfigDirectorClient {
         try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
@@ -41,6 +53,10 @@ final class ClientFixture: Sendable {
                 center: notifications,
                 backgroundNotification: .testDidEnterBackground,
                 foregroundNotification: .testWillEnterForeground
+            ),
+            telemetryOptions: TelemetryOptions(
+                flushInterval: telemetryFlushInterval,
+                initialFlushDelay: telemetryFlushInterval
             )
         )
     }
@@ -84,6 +100,16 @@ final class ClientFixture: Sendable {
 
     var streamDisconnections: Int {
         StubURLProtocol.cancelled(for: streamURL)
+    }
+
+    var telemetryRequests: [StubURLProtocol.RecordedRequest] {
+        StubURLProtocol.recorded(for: telemetryURL)
+    }
+
+    func telemetryReports() -> [TelemetryReport] {
+        telemetryRequests.compactMap { request in
+            request.body.flatMap { try? JSONDecoder().decode(TelemetryReport.self, from: Data($0.utf8)) }
+        }
     }
 }
 
@@ -136,4 +162,57 @@ extension ConfigDirectorClientOptions {
 struct Theme: Codable, Equatable {
     var primaryColor: String
     var cornerRadius: Int
+}
+
+/// A telemetry report, read back from the request the SDK posted.
+struct TelemetryReport: Decodable, Sendable {
+    struct Aggregated: Decodable, Sendable {
+        var startTime: String
+        var endTime: String
+        var count: Int
+        var event: ReportedEvaluation
+    }
+
+    struct ReportedValue: Decodable, Sendable {
+        var value: String?
+        var valueId: String?
+        var type: String?
+    }
+
+    struct ReportedEvaluation: Decodable, Sendable {
+        var contextId: String?
+        var key: String
+        var type: String?
+        var defaultValue: ReportedValue
+        var requestedType: String
+        var evaluatedValue: ReportedValue
+        var evaluatedValueId: String?
+        var usedDefault: Bool
+        var evaluationReason: String
+    }
+
+    struct Events: Decodable, Sendable {
+        var evaluatedConfig: [Aggregated]
+    }
+
+    struct Dropped: Decodable, Sendable {
+        var evaluatedConfig: Int
+    }
+
+    struct Meta: Decodable, Sendable {
+        var sdkName: String
+        var sdkVersion: String
+    }
+
+    var clientSdkKey: String
+    var metaContext: Meta
+    var context: SentPayload.Context?
+    var aggregatedEvents: Events
+    var droppedEvents: Dropped
+
+    /// The reported evaluations, keyed by config, so a test can assert on one without depending on
+    /// the order the others happen to come back in.
+    func evaluations(of key: String) -> [Aggregated] {
+        aggregatedEvents.evaluatedConfig.filter { $0.event.key == key }
+    }
 }

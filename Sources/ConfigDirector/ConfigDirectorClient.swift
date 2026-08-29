@@ -23,8 +23,10 @@ public final class ConfigDirectorClient: Sendable {
 
     private let logger: any ConfigDirectorLogger
     private let timeout: TimeInterval
+    private let pausesWhileBackgrounded: Bool
     private let store: ConfigStore
     private let transport: any Transport
+    private let telemetry: any TelemetryClient
     private let lifecycle: any AppLifecycleObserver
     private let connectionState = Locked(ConnectionState())
 
@@ -44,7 +46,8 @@ public final class ConfigDirectorClient: Sendable {
             clientSDKKey: clientSDKKey,
             options: options,
             session: URLSession(configuration: .default),
-            lifecycle: NotificationCenterLifecycleObserver()
+            lifecycle: NotificationCenterLifecycleObserver(),
+            telemetryOptions: TelemetryOptions()
         )
     }
 
@@ -52,18 +55,34 @@ public final class ConfigDirectorClient: Sendable {
         clientSDKKey: String,
         options: ConfigDirectorClientOptions,
         session: URLSession,
-        lifecycle: any AppLifecycleObserver
+        lifecycle: any AppLifecycleObserver,
+        telemetryOptions: TelemetryOptions
     ) throws {
         guard !clientSDKKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ConfigDirectorError.missingClientSDKKey
         }
 
         let baseURL = try Self.resolveBaseURL(options.connection.baseURL)
-        let store = ConfigStore(logger: options.logger)
+        let telemetry = TelemetryEventCollector(
+            reporter: HTTPEventReporter(
+                clientSDKKey: clientSDKKey,
+                baseURL: baseURL,
+                metaContext: TelemetryMetaContext(
+                    sdkName: Constants.sdkName,
+                    sdkVersion: Constants.sdkVersion
+                ),
+                logger: options.logger,
+                session: session
+            ),
+            logger: options.logger,
+            options: telemetryOptions
+        )
+        let store = ConfigStore(logger: options.logger, telemetry: telemetry)
 
         logger = options.logger
         timeout = options.connection.timeout
         self.store = store
+        self.telemetry = telemetry
         transport = Self.makeTransport(
             mode: options.connection.mode,
             options: TransportOptions(
@@ -78,10 +97,9 @@ public final class ConfigDirectorClient: Sendable {
             onConfigSet: { [store] configSet in store.handleConfigSet(configSet) }
         )
         self.lifecycle = lifecycle
+        pausesWhileBackgrounded = options.connection.pausesWhileBackgrounded
 
-        if options.connection.pausesWhileBackgrounded {
-            lifecycle.start { [weak self] phase in self?.handle(phase) }
-        }
+        lifecycle.start { [weak self] phase in self?.handle(phase) }
     }
 
     /// The context the client is currently evaluating configs against, or `nil` when there is none.
@@ -217,6 +235,7 @@ public final class ConfigDirectorClient: Sendable {
 
         logger.debug("close() called, closing the connection to the server and removing all observers")
         lifecycle.stop()
+        telemetry.close()
         store.close()
         transport.shutdown()
     }
@@ -233,6 +252,7 @@ public final class ConfigDirectorClient: Sendable {
         }
 
         connectionState.withLock { $0.hasConnected = true }
+        Task { [telemetry] in await telemetry.updateContext(context) }
         store.setContext(context)
 
         // The transport may have spent part of the budget connecting; only the remainder is left to
@@ -255,8 +275,11 @@ public final class ConfigDirectorClient: Sendable {
     private func handle(_ phase: AppLifecyclePhase) {
         switch phase {
         case .background:
+            // The app may not come back, so telemetry goes out at the first sign of it leaving.
+            Task { [telemetry] in await telemetry.flush() }
+
             let shouldPause = connectionState.withLock { state -> Bool in
-                guard !state.isClosed, state.hasConnected else { return false }
+                guard !state.isClosed, state.hasConnected, pausesWhileBackgrounded else { return false }
                 state.isPausedWhileBackgrounded = true
                 return true
             }

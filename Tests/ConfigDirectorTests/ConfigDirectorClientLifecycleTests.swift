@@ -110,13 +110,15 @@ struct ConfigDirectorClientLifecycleTests {
         #expect(observer.isObserving == false)
     }
 
-    @Test func neverObservesTheAppLifecycleWhenPausingWhileBackgroundedIsOff() throws {
+    /// The lifecycle is followed whether or not the connection pauses: telemetry is reported when
+    /// the app leaves the foreground either way.
+    @Test func observesTheAppLifecycleEvenWhenPausingWhileBackgroundedIsOff() throws {
         let fixture = ClientFixture()
         let observer = RecordingLifecycleObserver()
         let client = try fixture.makeClient(pausesWhileBackgrounded: false, lifecycle: observer)
         defer { client.close() }
 
-        #expect(observer.isObserving == false)
+        #expect(observer.isObserving)
     }
 
     @Test func ignoresTheAppLifecycleOnceClosed() async throws {

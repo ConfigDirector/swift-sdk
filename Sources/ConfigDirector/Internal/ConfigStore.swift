@@ -22,10 +22,12 @@ final class ConfigStore: Sendable {
     }
 
     private let logger: any ConfigDirectorLogger
+    private let telemetry: any TelemetryClient
     private let state = Locked(State())
 
-    init(logger: any ConfigDirectorLogger) {
+    init(logger: any ConfigDirectorLogger, telemetry: any TelemetryClient) {
         self.logger = logger
+        self.telemetry = telemetry
     }
 
     var isReady: Bool {
@@ -169,6 +171,22 @@ final class ConfigStore: Sendable {
             usedDefault: true,
             reason: isReady ? .configStateMissing : .clientNotReady
         )
+
+        telemetry.evaluatedConfig(EvaluatedConfigEvent(
+            contextID: context?.id,
+            key: key,
+            type: configState?.type,
+            defaultValue: TelemetryValue(value: String(describing: defaultValue), type: configState?.type),
+            requestedType: String(describing: Value.self),
+            evaluatedValue: TelemetryValue(
+                value: String(describing: result.value),
+                valueID: result.valueID,
+                type: configState?.type
+            ),
+            evaluatedValueID: result.valueID,
+            usedDefault: result.usedDefault,
+            evaluationReason: result.reason
+        ))
 
         events.emit(.configEvaluated(ConfigEvaluation(
             key: key,
