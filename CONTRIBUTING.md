@@ -89,6 +89,27 @@ cancelling a task that is awaiting an `AsyncStream` terminates that stream, so a
 used to assert that nothing was emitted — the stream is dead afterwards either way. Collect the
 whole sequence of emissions and assert on it instead.
 
+## Locks
+
+Shared mutable state is guarded by `Locked`, a small `NSLock` wrapper, rather than by actors. Two
+constraints force that: `value(for:default:)` has to be callable from a synchronous SwiftUI `body`,
+and `deinit` calls `close()` all the way down to the event source, which cannot `await`. The
+language does fix the second one with `isolated deinit`, but that needs iOS 18.4 and the package
+targets iOS 15. Revisit this if the deployment floor ever moves.
+
+**Never call out while holding a lock.** Copy what you need out under the lock, let `withLock`
+return, then do the work — that is why `handleConfigSet` collects its watchers under the lock and
+calls `reevaluate()` afterwards, and why `close()` resumes its waiters outside.
+
+Debug builds enforce this: `LockNesting` fails immediately, naming both call sites, if a thread
+takes a second lock while it already holds one. Deadlock requires holding one lock while waiting for
+another, so while no thread ever holds two, no wait-for cycle can form. `withLock` also takes a
+non-`async` closure, so a lock can never be held across a suspension point.
+
+`NSRecursiveLock` looks like a safer default here and is not: it lets a re-entrant call observe the
+half-updated state a critical section exists to hide, so the same mistake that traps loudly in
+tests today would instead produce intermittent wrong values in production.
+
 ## CI and the pre-push hook
 
 [.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every branch and pull request: build
