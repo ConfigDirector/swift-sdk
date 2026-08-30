@@ -63,6 +63,13 @@ public final class ConfigDirectorClient: Sendable {
         }
 
         let baseURL = try Self.resolveBaseURL(options.connection.baseURL)
+        if baseURL.scheme?.lowercased() != "https" {
+            options.logger.warn("""
+            The base URL '\(baseURL)' is not HTTPS. The client SDK key, every context you send, and \
+            every config value served back travel in plain text.
+            """)
+        }
+
         let telemetry = TelemetryEventCollector(
             reporter: HTTPEventReporter(
                 clientSDKKey: clientSDKKey,
@@ -133,6 +140,24 @@ public final class ConfigDirectorClient: Sendable {
     /// ```
     public var events: AsyncStream<ClientEvent> {
         store.events.subscribe()
+    }
+
+    /// Every config evaluation the client makes, from the moment this stream is created.
+    ///
+    /// One is published for every read, whether by ``value(for:default:)`` or by a
+    /// ``values(for:default:)`` stream, so reading a config from a SwiftUI `body` publishes one per
+    /// frame. Each access returns an independent stream.
+    ///
+    /// Do not update view state straight from this stream: the state change re-renders the view,
+    /// which reads the config again, which publishes another evaluation.
+    ///
+    /// ```swift
+    /// for await evaluation in client.evaluations where evaluation.isDefaultValue {
+    ///     logger.notice("'\(evaluation.key)' fell back: \(evaluation.reason.rawValue)")
+    /// }
+    /// ```
+    public var evaluations: AsyncStream<ConfigEvaluation> {
+        store.evaluations.subscribe()
     }
 
     /// Connects to ConfigDirector to retrieve config evaluations. Until initialization succeeds,
@@ -228,10 +253,7 @@ public final class ConfigDirectorClient: Sendable {
     /// The client closes itself when it is released, so calling this is only necessary to shut it
     /// down while a reference to it is still held. The client cannot be used afterwards.
     public func close() {
-        let wasClosed = connectionState.withLock { state -> Bool in
-            defer { state.isClosed = true }
-            return state.isClosed
-        }
+        let wasClosed = connectionState.exchange(\.isClosed, with: true)
         guard !wasClosed else { return }
 
         logger.debug("close() called, closing the connection to the server and removing all observers")

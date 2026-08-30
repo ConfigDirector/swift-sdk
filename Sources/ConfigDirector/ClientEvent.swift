@@ -23,10 +23,6 @@ public enum ClientEvent: Sendable {
 
     /// A new context has taken effect.
     case contextUpdated(ConfigDirectorContext?)
-
-    /// A config was evaluated, whether by ``ConfigDirectorClient/value(for:default:)`` or by a
-    /// ``ConfigDirectorClient/values(for:default:)`` stream.
-    case configEvaluated(ConfigEvaluation)
 }
 
 extension ConnectReason: CustomStringConvertible {

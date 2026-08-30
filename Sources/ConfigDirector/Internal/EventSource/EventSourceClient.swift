@@ -85,8 +85,9 @@ final class EventSourceClient: Sendable {
         let task = state.withLock { state -> Task<Void, Never>? in
             state.isClosed = true
             state.readyState = .closed
-            defer { state.task = nil }
-            return state.task
+            let running = state.task
+            state.task = nil
+            return running
         }
         task?.cancel()
     }

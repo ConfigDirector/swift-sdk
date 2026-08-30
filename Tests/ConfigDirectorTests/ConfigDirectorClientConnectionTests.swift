@@ -38,6 +38,30 @@ struct ConfigDirectorClientConnectionTests {
         )
     }
 
+    @Test func warnsWhenTheBaseURLWouldSendTheSDKKeyInPlainText() throws {
+        let logger = RecordingLogger()
+        var options = ConfigDirectorClientOptions.test()
+        options.connection.baseURL = URL(string: "http://example.test")
+        options.logger = logger
+
+        let client = try ConfigDirectorClient(clientSDKKey: "sdk-key", options: options)
+        defer { client.close() }
+
+        #expect(logger.recorded.contains { $0.contains("not HTTPS") })
+    }
+
+    @Test func doesNotWarnAboutAnHTTPSBaseURL() throws {
+        let logger = RecordingLogger()
+        var options = ConfigDirectorClientOptions.test()
+        options.connection.baseURL = URL(string: "https://example.test")
+        options.logger = logger
+
+        let client = try ConfigDirectorClient(clientSDKKey: "sdk-key", options: options)
+        defer { client.close() }
+
+        #expect(logger.recorded.contains { $0.contains("not HTTPS") } == false)
+    }
+
     @Test func rejectsABaseURLThatIsNotAbsolute() throws {
         let baseURL = try #require(URL(string: "/client"))
         var options = ConfigDirectorClientOptions.test()
@@ -151,9 +175,11 @@ struct ConfigDirectorClientConnectionTests {
         await client.initialize()
 
         let events = client.events
+        let evaluations = client.evaluations
         let values = client.values(for: "dark-mode", default: false)
         let drained = Task {
             for await _ in events {}
+            for await _ in evaluations {}
             for await _ in values {}
             return true
         }

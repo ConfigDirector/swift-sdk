@@ -63,10 +63,7 @@ final class NotificationCenterLifecycleObserver: AppLifecycleObserver {
     }
 
     func stop() {
-        let observed = tokens.withLock { tokens -> [any NSObjectProtocol] in
-            defer { tokens = [] }
-            return tokens
-        }
+        let observed = tokens.exchange(\.self, with: [])
 
         for token in observed {
             center.removeObserver(token)

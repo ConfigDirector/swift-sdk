@@ -27,18 +27,10 @@ struct ConfigDirectorClientEvaluationTests {
         from client: ConfigDirectorClient,
         _ body: (ConfigDirectorClient) -> Value
     ) async -> (value: Value, evaluation: ConfigEvaluation?) {
-        let events = StreamReader(client.events)
+        let evaluations = StreamReader(client.evaluations)
         let value = body(client)
-        let event = await events.next {
-            if case .configEvaluated = $0 {
-                true
-            } else {
-                false
-            }
-        }
 
-        guard case let .configEvaluated(evaluation) = event else { return (value, nil) }
-        return (value, evaluation)
+        return await (value, evaluations.next())
     }
 
     @Test func servesTheDefaultWhenAValueDoesNotSpellABoolean() async throws {

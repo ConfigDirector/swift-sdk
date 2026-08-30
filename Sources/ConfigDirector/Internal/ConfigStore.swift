@@ -5,6 +5,11 @@ import Foundation
 final class ConfigStore: Sendable {
     let events = Broadcaster<ClientEvent>()
 
+    /// Kept apart from ``events``: an evaluation is published for every config read, which in a
+    /// SwiftUI body means many per frame, and a burst of them must not push a subscriber's buffer
+    /// past a ``ClientEvent/ready(_:)`` it has not consumed yet.
+    let evaluations = Broadcaster<ConfigEvaluation>()
+
     private struct Watcher: Sendable {
         let reevaluate: @Sendable () -> Void
         let finish: @Sendable () -> Void
@@ -155,6 +160,7 @@ final class ConfigStore: Sendable {
             watcher.finish()
         }
         events.finish()
+        evaluations.finish()
     }
 
     private func evaluate<Value: Sendable>(
@@ -188,14 +194,14 @@ final class ConfigStore: Sendable {
             evaluationReason: result.reason
         ))
 
-        events.emit(.configEvaluated(ConfigEvaluation(
+        evaluations.emit(ConfigEvaluation(
             key: key,
             value: result.value,
             valueID: result.valueID,
             isDefaultValue: result.usedDefault,
             reason: result.reason,
             context: context
-        )))
+        ))
         logger.debug("Evaluated '\(key)' to '\(result.value)' (\(result.reason.rawValue))")
 
         return result.value

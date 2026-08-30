@@ -78,6 +78,12 @@ nothing inside the SDK replaced: `StubURLProtocol` scripts the HTTP responses, a
 gives each test a base URL of its own so a client still winding down cannot consume the response the
 next test queued. Reach for a fake transport only for something the wire genuinely cannot express.
 
+Subscribe before you start whatever produces. `client.events`, `client.evaluations` and
+`client.values(for:)` register their subscriber when the stream is created, so one created inside a
+task group can be registered after everything it was waiting for has already been published — and
+then it waits forever. Bound every stream a test consumes with `withTimeout` or a `prefix`, so a
+regression fails the run instead of hanging it.
+
 Watch streams and event streams need particular care. `withTimeout` cancels the task it wraps, and
 cancelling a task that is awaiting an `AsyncStream` terminates that stream, so a timeout cannot be
 used to assert that nothing was emitted — the stream is dead afterwards either way. Collect the

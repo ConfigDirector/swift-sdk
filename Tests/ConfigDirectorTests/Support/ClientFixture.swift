@@ -34,7 +34,8 @@ final class ClientFixture: Sendable {
         pollingInterval: TimeInterval = 60,
         pausesWhileBackgrounded: Bool = true,
         lifecycle: (any AppLifecycleObserver)? = nil,
-        telemetryFlushInterval: TimeInterval = 0.05
+        telemetryFlushInterval: TimeInterval = 0.05,
+        logger: any ConfigDirectorLogger = ConsoleLogger(level: .off)
     ) throws -> ConfigDirectorClient {
         try ConfigDirectorClient(
             clientSDKKey: "sdk-key",
@@ -46,7 +47,7 @@ final class ClientFixture: Sendable {
                     baseURL: baseURL,
                     pausesWhileBackgrounded: pausesWhileBackgrounded
                 ),
-                logger: ConsoleLogger(level: .off)
+                logger: logger
             ),
             session: session,
             lifecycle: lifecycle ?? NotificationCenterLifecycleObserver(
@@ -148,6 +149,21 @@ let servedConfigSet = configSetJSON([
 /// A config set carrying only the configs that changed.
 func deltaConfigSet(_ configs: [ServedConfig]) -> String {
     configSetJSON(configs, kind: "delta")
+}
+
+/// Keeps what the SDK logged, so a test can assert on a warning an application would see.
+final class RecordingLogger: ConfigDirectorLogger {
+    let level = ConfigDirectorLogLevel.debug
+
+    private let messages = Locked<[String]>([])
+
+    var recorded: [String] {
+        messages.withLock { $0 }
+    }
+
+    func log(_: ConfigDirectorLogLevel, message: String, error _: (any Error)?) {
+        messages.withLock { $0.append(message) }
+    }
 }
 
 extension ConfigDirectorClientOptions {

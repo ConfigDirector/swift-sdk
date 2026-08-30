@@ -49,7 +49,7 @@ final class EventQueue<Event: Sendable>: Sendable {
     private let state = Locked(State())
 
     init(limit: Int = 1000) {
-        self.limit = limit
+        self.limit = max(1, limit)
     }
 
     var isEmpty: Bool {
@@ -80,15 +80,14 @@ final class EventQueue<Event: Sendable>: Sendable {
     func takeSnapshot() -> EventQueueSnapshot<Event> {
         let endTime = Date()
 
-        return state.withLock { state in
-            defer { state = State() }
-            return EventQueueSnapshot(
-                startTime: state.startTime ?? endTime,
-                endTime: endTime,
-                events: state.events,
-                droppedCount: state.droppedCount
-            )
-        }
+        let collected = state.exchange(\.self, with: State())
+
+        return EventQueueSnapshot(
+            startTime: collected.startTime ?? endTime,
+            endTime: endTime,
+            events: collected.events,
+            droppedCount: collected.droppedCount
+        )
     }
 
     func clear() {

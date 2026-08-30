@@ -5,7 +5,6 @@ import Foundation
 final class StreamingTransport: Transport {
     private struct State {
         var eventSource: EventSourceClient?
-        var consumer: Task<Void, Never>?
         var isClosed = false
     }
 
@@ -46,15 +45,13 @@ final class StreamingTransport: Transport {
 
         let eventSource = EventSourceClient(configuration: configuration, session: options.session)
         let events = eventSource.start()
-        let consumer = Task { [weak self] in
+        // The task ends itself: closing the event source finishes the stream it is reading.
+        Task { [weak self] in
             for await event in events {
                 self?.handle(event, connected)
             }
         }
-        state.withLock {
-            $0.eventSource = eventSource
-            $0.consumer = consumer
-        }
+        state.withLock { $0.eventSource = eventSource }
 
         try await connected.wait(timeout: timeout)
     }
@@ -69,16 +66,7 @@ final class StreamingTransport: Transport {
     }
 
     private func release() {
-        let (eventSource, consumer) = state.withLock { state -> (EventSourceClient?, Task<Void, Never>?) in
-            defer {
-                state.eventSource = nil
-                state.consumer = nil
-            }
-            return (state.eventSource, state.consumer)
-        }
-
-        eventSource?.close()
-        consumer?.cancel()
+        state.exchange(\.eventSource, with: nil)?.close()
     }
 
     private func handle(_ event: EventSourceClient.Event, _ connected: ConnectionGate) {

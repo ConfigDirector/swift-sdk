@@ -65,10 +65,7 @@ final class PollingTransport: Transport {
     }
 
     func disconnect() {
-        state.withLock { state in
-            defer { state.polling = nil }
-            return state.polling
-        }?.cancel()
+        state.exchange(\.polling, with: nil)?.cancel()
     }
 
     func close() {

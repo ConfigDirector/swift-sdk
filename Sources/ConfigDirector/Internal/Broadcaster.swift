@@ -44,8 +44,9 @@ final class Broadcaster<Element: Sendable>: Sendable {
     func finish() {
         let subscribers = state.withLock { state -> [AsyncStream<Element>.Continuation] in
             state.isFinished = true
-            defer { state.subscribers.removeAll() }
-            return Array(state.subscribers.values)
+            let current = Array(state.subscribers.values)
+            state.subscribers.removeAll()
+            return current
         }
         for subscriber in subscribers {
             subscriber.finish()

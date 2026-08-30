@@ -116,20 +116,25 @@ extension AggregatedEvent: Encodable where Event: Encodable {
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(ISO8601DateFormatter.telemetry.string(from: startTime), forKey: .startTime)
-        try container.encode(ISO8601DateFormatter.telemetry.string(from: endTime), forKey: .endTime)
+        try container.encode(startTime.telemetryTimestamp, forKey: .startTime)
+        try container.encode(endTime.telemetryTimestamp, forKey: .endTime)
         try container.encode(count, forKey: .count)
         try container.encode(event, forKey: .event)
     }
 }
 
-extension ISO8601DateFormatter {
-    /// Formatting is thread-safe on this type, but it predates `Sendable` and cannot be marked as
-    /// such, so sharing one instead of building one per timestamp has to be asserted here.
-    nonisolated(unsafe) static let telemetry: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter
-    }()
+/// Shared rather than built per timestamp, and locked rather than assumed thread-safe: this type
+/// predates `Sendable` and does not document concurrent formatting.
+private let telemetryTimestampFormatter = Locked<ISO8601DateFormatter>({
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    return formatter
+}())
+
+extension Date {
+    /// The timestamp format the ConfigDirector API expects.
+    var telemetryTimestamp: String {
+        telemetryTimestampFormatter.withLock { $0.string(from: self) }
+    }
 }

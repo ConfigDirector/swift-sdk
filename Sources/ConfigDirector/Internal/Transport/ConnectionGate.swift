@@ -19,8 +19,9 @@ final class ConnectionGate: Sendable {
         ) in
             guard state.settled == nil else { return (false, nil) }
             state.settled = result
-            defer { state.continuation = nil }
-            return (true, state.continuation)
+            let waiting = state.continuation
+            state.continuation = nil
+            return (true, waiting)
         }
 
         continuation?.resume(with: result)
@@ -64,9 +65,6 @@ final class ConnectionGate: Sendable {
     }
 
     private func takeContinuation() -> CheckedContinuation<Void, any Error>? {
-        state.withLock { state in
-            defer { state.continuation = nil }
-            return state.continuation
-        }
+        state.exchange(\.continuation, with: nil)
     }
 }

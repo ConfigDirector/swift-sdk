@@ -81,3 +81,14 @@ func waitUntil(timeout: TimeInterval = 2, _ condition: @escaping @Sendable () ->
     }
     return condition()
 }
+
+extension Array where Element: Sendable {
+    /// Drains the first elements of an `AsyncSequence` into an array.
+    init<Source: AsyncSequence & Sendable>(_ sequence: Source) async where Source.Element == Element {
+        self.init()
+        guard let collected = try? await sequence.reduce(into: [Element](), { $0.append($1) }) else {
+            return
+        }
+        self = collected
+    }
+}

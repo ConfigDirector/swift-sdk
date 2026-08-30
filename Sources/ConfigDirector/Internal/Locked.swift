@@ -13,4 +13,13 @@ final class Locked<Value>: @unchecked Sendable {
         defer { lock.unlock() }
         return try body(&value)
     }
+
+    /// Replaces the value at `keyPath`, returning what was there before.
+    func exchange<Member>(_ keyPath: WritableKeyPath<Value, Member>, with newValue: Member) -> Member {
+        withLock { value in
+            let previous = value[keyPath: keyPath]
+            value[keyPath: keyPath] = newValue
+            return previous
+        }
+    }
 }

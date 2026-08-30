@@ -40,6 +40,17 @@ struct EventQueueTests {
         #expect(queue.isEmpty, "the dropped count is reset along with the events")
     }
 
+    @Test(arguments: [0, -1]) func keepsAtLeastOneEventWhateverLimitItIsGiven(_ limit: Int) {
+        let queue = EventQueue<Int>(limit: limit)
+
+        queue.push(1)
+        queue.push(2)
+        let snapshot = queue.takeSnapshot()
+
+        #expect(snapshot.events == [2])
+        #expect(snapshot.droppedCount == 1)
+    }
+
     @Test func clearingDiscardsEverything() {
         let queue = EventQueue<Int>(limit: 1)
         queue.push(1)

@@ -90,8 +90,9 @@ final class TelemetryEventCollector: TelemetryClient {
             guard !state.isClosed else { return nil }
             state.isClosed = true
             state.isCollecting = false
-            defer { state.timer = nil }
-            return state.timer
+            let running = state.timer
+            state.timer = nil
+            return running
         }
         timer?.cancel()
 
@@ -135,8 +136,9 @@ final class TelemetryEventCollector: TelemetryClient {
     private func stopCollecting() {
         let timer = state.withLock { state -> Task<Void, Never>? in
             state.isCollecting = false
-            defer { state.timer = nil }
-            return state.timer
+            let running = state.timer
+            state.timer = nil
+            return running
         }
         timer?.cancel()
 
@@ -165,9 +167,6 @@ final class TelemetryEventCollector: TelemetryClient {
             }
         }
 
-        state.withLock { state in
-            state.timer?.cancel()
-            state.timer = timer
-        }
+        state.exchange(\.timer, with: timer)?.cancel()
     }
 }

@@ -22,15 +22,11 @@ struct ConfigDirectorClientTests {
         fixture.serveStream(servedConfigSet)
         let client = try fixture.makeClient()
         defer { client.close() }
-        let events = StreamReader(client.events)
+        let evaluations = StreamReader(client.evaluations)
 
         _ = client.value(for: "dark-mode", default: false)
 
-        let event = await events.next()
-        guard case let .configEvaluated(evaluation) = event else {
-            Issue.record("expected a configEvaluated event, got \(String(describing: event))")
-            return
-        }
+        let evaluation = try #require(await evaluations.next())
         #expect(evaluation.key == "dark-mode")
         #expect(evaluation.isDefaultValue)
         #expect(evaluation.reason == .clientNotReady)
@@ -64,14 +60,10 @@ struct ConfigDirectorClientTests {
         defer { client.close() }
         await client.initialize()
 
-        let events = StreamReader(client.events)
+        let evaluations = StreamReader(client.evaluations)
         #expect(client.value(for: "missing", default: "fallback") == "fallback")
 
-        let event = await events.next()
-        guard case let .configEvaluated(evaluation) = event else {
-            Issue.record("expected a configEvaluated event, got \(String(describing: event))")
-            return
-        }
+        let evaluation = try #require(await evaluations.next())
         #expect(evaluation.reason == .configStateMissing)
     }
 
@@ -105,6 +97,32 @@ struct ConfigDirectorClientTests {
             "welcome-message",
         ])
         #expect(seenContext == ConfigDirectorContext(id: "user-123"))
+    }
+
+    @Test func lifecycleEventsSurviveABurstOfEvaluations() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+
+        // Subscribed but not consumed yet, the way a view that has not been scheduled behaves.
+        let events = StreamReader(client.events)
+
+        await client.initialize()
+
+        // What a handful of configs read from a SwiftUI body produces in a second or so.
+        for _ in 0 ..< 300 {
+            _ = client.value(for: "dark-mode", default: false)
+        }
+
+        let ready = await events.next(timeout: 1) {
+            if case .ready = $0 {
+                true
+            } else {
+                false
+            }
+        }
+        #expect(ready != nil, "the ready event was evicted by evaluation events")
     }
 
     @Test func watchYieldsTheCurrentValueAndThenEveryChange() async throws {
