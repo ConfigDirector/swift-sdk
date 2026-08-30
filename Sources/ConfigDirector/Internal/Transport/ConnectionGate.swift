@@ -31,8 +31,14 @@ final class ConnectionGate: Sendable {
     /// Waits for the gate to settle, treating `timeout` seconds passing as a success: a connection
     /// that has not opened yet may still open later.
     func wait(timeout: TimeInterval) async throws {
-        let timeoutTask = Locked<Task<Void, Never>?>(nil)
-        defer { timeoutTask.withLock { $0 }?.cancel() }
+        let timeoutTask = Task { [weak self] in
+            let slept: Void? = try? await Task.sleep(
+                nanoseconds: UInt64(max(0, timeout) * 1_000_000_000)
+            )
+            guard slept != nil else { return }
+            self?.settle()
+        }
+        defer { timeoutTask.cancel() }
 
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -46,17 +52,6 @@ final class ConnectionGate: Sendable {
 
                 if let settled {
                     continuation.resume(with: settled)
-                    return
-                }
-
-                timeoutTask.withLock {
-                    $0 = Task { [weak self] in
-                        let slept: Void? = try? await Task.sleep(
-                            nanoseconds: UInt64(max(0, timeout) * 1_000_000_000)
-                        )
-                        guard slept != nil else { return }
-                        self?.settle()
-                    }
                 }
             }
         } onCancel: {

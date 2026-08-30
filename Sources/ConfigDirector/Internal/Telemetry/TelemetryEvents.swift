@@ -123,18 +123,11 @@ extension AggregatedEvent: Encodable where Event: Encodable {
     }
 }
 
-/// Shared rather than built per timestamp, and locked rather than assumed thread-safe: this type
-/// predates `Sendable` and does not document concurrent formatting.
-private let telemetryTimestampFormatter = Locked<ISO8601DateFormatter>({
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    return formatter
-}())
+private let telemetryTimestampStyle = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
 extension Date {
     /// The timestamp format the ConfigDirector API expects.
     var telemetryTimestamp: String {
-        telemetryTimestampFormatter.withLock { $0.string(from: self) }
+        formatted(telemetryTimestampStyle)
     }
 }

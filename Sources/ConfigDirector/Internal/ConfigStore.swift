@@ -62,7 +62,14 @@ final class ConfigStore: Sendable {
     /// Waits until config state arrives, at most `timeout` seconds.
     func waitUntilReady(timeout: TimeInterval) async {
         let id = UUID()
-        let timeoutTask = Locked<Task<Void, Never>?>(nil)
+        let timeoutTask = Task { [weak self] in
+            let slept: Void? = try? await Task.sleep(
+                nanoseconds: UInt64(max(0, timeout) * 1_000_000_000)
+            )
+            guard slept != nil else { return }
+            self?.resumeReadyWaiter(id)
+        }
+        defer { timeoutTask.cancel() }
 
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let isSettled = state.withLock { state -> Bool in
@@ -71,20 +78,10 @@ final class ConfigStore: Sendable {
                 return false
             }
 
-            guard !isSettled else {
+            if isSettled {
                 continuation.resume()
-                return
-            }
-
-            timeoutTask.withLock {
-                $0 = Task { [weak self] in
-                    try? await Task.sleep(nanoseconds: UInt64(max(0, timeout) * 1_000_000_000))
-                    self?.resumeReadyWaiter(id)
-                }
             }
         }
-
-        timeoutTask.withLock { $0 }?.cancel()
     }
 
     func handleConfigSet(_ configSet: ConfigSet) {
