@@ -1,7 +1,12 @@
-# ConfigDirector iOS sample app
+# ConfigDirector iOS and iPadOS sample app
 
 A single-screen SwiftUI app showing how to use the ConfigDirector Swift client SDK: it reads a
 handful of configs and re-renders as their values change.
+
+It is one universal target rather than an iPhone app and an iPad app. The screen follows the
+horizontal size class: compact stacks the configs and the context in a single list, regular moves
+the context into its own column beside them. That covers iPad, an iPad Split View slice wide enough
+to be regular, and a landscape iPhone Pro Max.
 
 It is three files in [ConfigDirectorSample](ConfigDirectorSample):
 [the app itself](ConfigDirectorSample/ConfigDirectorSampleApp.swift), which owns one client for the
@@ -30,7 +35,7 @@ Alongside the key it carries the context the configs are evaluated against:
 `CONFIGDIRECTOR_USER_ID`, `CONFIGDIRECTOR_USER_NAME` and `CONFIGDIRECTOR_USER_ROLE` (sent as the
 `role` trait). Leave them empty and the configs are evaluated without a context.
 
-The picker under Context switches between that configured user, a built-in beta tester carrying a
+The Context picker switches between that configured user, a built-in beta tester carrying a
 `role` trait, and an anonymous context. Each switch calls `updateContext`, which reconnects and
 re-evaluates every config against the new identity — the way to watch a targeting rule take effect
 without rebuilding.
