@@ -34,7 +34,6 @@ final class TelemetryEventCollector: TelemetryClient {
     private struct State {
         var context: ConfigDirectorContext?
         var timer: Task<Void, Never>?
-        var pendingFlush: Task<Void, Never>?
         var isCollecting = true
         var isClosed = false
     }
@@ -43,6 +42,7 @@ final class TelemetryEventCollector: TelemetryClient {
     private let logger: any ConfigDirectorLogger
     private let options: TelemetryOptions
     private let queue: EventQueue<EvaluatedConfigEvent>
+    private let flushes = SerialAsyncQueue()
     private let state = Locked(State())
 
     init(
@@ -73,7 +73,7 @@ final class TelemetryEventCollector: TelemetryClient {
 
         let pending = takeSnapshot()
         state.withLock { $0.context = context }
-        await chain(pending)
+        await enqueueReport(pending)
 
         restartTimer()
     }
@@ -81,7 +81,7 @@ final class TelemetryEventCollector: TelemetryClient {
     func flush() async {
         guard !state.withLock({ $0.isClosed }) else { return }
 
-        await chain(takeSnapshot())
+        await enqueueReport(takeSnapshot())
         restartTimer()
     }
 
@@ -98,7 +98,7 @@ final class TelemetryEventCollector: TelemetryClient {
 
         let pending = takeSnapshot()
         Task { [self] in
-            await chain(pending)
+            await enqueueReport(pending)
             reporter.close()
             queue.clear()
         }
@@ -111,20 +111,10 @@ final class TelemetryEventCollector: TelemetryClient {
 
     /// Sends `report` after whatever is already in flight, so batches reach the server in the order
     /// they were collected.
-    private func chain(_ report: EventReport?) async {
+    private func enqueueReport(_ report: EventReport?) async {
         guard let report else { return }
 
-        let flush = state.withLock { state -> Task<Void, Never> in
-            let previous = state.pendingFlush
-            let flush = Task { [self] in
-                await previous?.value
-                await send(report)
-            }
-            state.pendingFlush = flush
-            return flush
-        }
-
-        await flush.value
+        await flushes.enqueue { [self] in await send(report) }
     }
 
     private func send(_ report: EventReport) async {
@@ -162,7 +152,7 @@ final class TelemetryEventCollector: TelemetryClient {
                 let slept: Void? = try? await Task.sleep(nanoseconds: UInt64(max(0, next) * 1_000_000_000))
                 guard slept != nil, let self else { return }
 
-                await chain(takeSnapshot())
+                await enqueueReport(takeSnapshot())
                 next = options.flushInterval
             }
         }
