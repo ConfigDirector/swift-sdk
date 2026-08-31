@@ -16,7 +16,7 @@ protocol TelemetryClient: Sendable {
 
     /// Reports the events collected so far against the previous context, and attributes the ones
     /// collected from now on to `context`.
-    func updateContext(_ context: ConfigDirectorContext?) async
+    func updateContext(_ context: ConfigDirectorContext?)
 
     /// Reports everything collected so far without waiting for the next flush.
     func flush() async
@@ -68,12 +68,12 @@ final class TelemetryEventCollector: TelemetryClient {
         queue.push(event)
     }
 
-    func updateContext(_ context: ConfigDirectorContext?) async {
+    func updateContext(_ context: ConfigDirectorContext?) {
         guard !state.withLock({ $0.isClosed }) else { return }
 
         let pending = takeSnapshot()
         state.withLock { $0.context = context }
-        await enqueueReport(pending)
+        Task { [self] in await enqueueReport(pending) }
 
         restartTimer()
     }

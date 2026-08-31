@@ -8,6 +8,13 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Fixed
+
+- Telemetry no longer attributes an evaluation to the context it was not made against. Reading a
+  config immediately after `updateContext(_:)` returned could be reported in the batch belonging to
+  the previous context, because the collector was told about the new context in a detached task
+  that had not necessarily run yet.
+
 ## [1.0.0] - 2026-08-30
 
 ### Added

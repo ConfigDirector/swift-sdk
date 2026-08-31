@@ -279,7 +279,7 @@ public final class ConfigDirectorClient: Sendable {
         }
 
         connectionState.withLock { $0.hasConnected = true }
-        Task { [telemetry] in await telemetry.updateContext(context) }
+        telemetry.updateContext(context)
         store.setContext(context)
 
         // The transport may have spent part of the budget connecting; only the remainder is left to
