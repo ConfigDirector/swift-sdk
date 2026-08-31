@@ -7,9 +7,9 @@ struct ConnectionGateTests {
         let gate = ConnectionGate()
         gate.settle()
 
-        let waited = await withTimeout { try? await gate.wait(timeout: 5) }
+        let released = await withTimeout { await (try? gate.wait(timeout: 5)) != nil } ?? false
 
-        #expect(waited != nil, "a gate that settled before the wait never released the caller")
+        #expect(released, "a gate that settled before the wait never released the caller")
     }
 
     @Test func throwsTheFailureItSettledWith() async {
@@ -31,8 +31,8 @@ struct ConnectionGateTests {
         #expect(gate.settle())
         #expect(!gate.settle(.failure(ConfigDirectorError.missingClientSDKKey)))
 
-        let waited = await withTimeout { try? await gate.wait(timeout: 5) }
-        #expect(waited != nil, "the gate settled again with a failure")
+        let released = await withTimeout { await (try? gate.wait(timeout: 5)) != nil } ?? false
+        #expect(released, "the gate settled again with a failure")
     }
 
     @Test func treatsRunningOutOfTimeAsASuccess() async throws {
