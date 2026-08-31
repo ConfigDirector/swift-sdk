@@ -1,6 +1,6 @@
 # ConfigDirector sample apps
 
-Two SwiftUI apps showing how to use the ConfigDirector Swift client SDK: each reads a handful of
+Three SwiftUI apps showing how to use the ConfigDirector Swift client SDK: each reads a handful of
 configs and re-renders as their values change.
 
 [**ConfigDirectorSample**](ConfigDirectorSample) covers iOS and iPadOS as one universal target
@@ -8,6 +8,11 @@ rather than an iPhone app and an iPad app. The screen follows the horizontal siz
 stacks the configs and the context in a single list, regular moves the context into its own column
 beside them. That covers iPad, an iPad Split View slice wide enough to be regular, and a landscape
 iPhone Pro Max.
+
+[**ConfigDirectorSampleMac**](ConfigDirectorSampleMac) covers macOS, in an `HSplitView` so the
+divider between the context and the configs is draggable the way a Mac window should be. It is
+sandboxed, and the sandbox is why the target turns on outgoing network connections — without that
+entitlement the client cannot reach the server at all.
 
 [**ConfigDirectorSampleWatch**](ConfigDirectorSampleWatch) covers watchOS, standalone with no
 companion iPhone app. One scrolling list, readiness in the navigation title where there is room for
@@ -27,16 +32,16 @@ the SDK.
    cp Config.local.example.xcconfig Config.local.xcconfig
    ```
 
-2. Open the project, pick the `ConfigDirectorSample` or `ConfigDirectorSampleWatch` scheme, and
-   run it on a simulator or a device:
+2. Open the project, pick the `ConfigDirectorSample`, `ConfigDirectorSampleMac` or
+   `ConfigDirectorSampleWatch` scheme, and run it on your Mac, a simulator or a device:
 
    ```sh
    open ConfigDirectorSample.xcodeproj
    ```
 
-`Config.local.xcconfig` is git-ignored, and both apps read the same copy of it. Its values reach
+`Config.local.xcconfig` is git-ignored, and all three apps read the same copy of it. Its values reach
 them through the `Info.plist` and are read back with `Bundle.main.object(forInfoDictionaryKey:)`,
-so nothing has to be committed. Without it either app builds and runs, and says it has no SDK
+so nothing has to be committed. Without it each app builds and runs, and says it has no SDK
 key.
 
 Alongside the key it carries the context the configs are evaluated against:
@@ -53,7 +58,7 @@ API change fails the samples' build rather than shipping.
 
 ## What they show
 
-Both apps read the keys of the ConfigDirector sample project — `temporary-feature-flag`,
+All three apps read the keys of the ConfigDirector sample project — `temporary-feature-flag`,
 `permanent-kill-switch`, `integer-config`, `day-of-the-week-config` and `json-value-config`.
 Pointing them at a project without them is fine: each config falls back to the default value passed
 alongside its key, which is what the screen shows until the client is ready.
@@ -65,5 +70,5 @@ default means the config did not resolve.
 also decodes a JSON config into any `Decodable` type through
 `client.value(for:as:default:)`.
 
-Both connect in streaming mode, so a value changed in the ConfigDirector dashboard appears on
-screen without restarting them.
+All three connect in streaming mode, so a value changed in the ConfigDirector dashboard appears
+on screen without restarting them.

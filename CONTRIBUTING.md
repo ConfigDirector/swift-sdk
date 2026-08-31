@@ -131,9 +131,10 @@ silently skipping a check CI will fail on.
 
 ## Sample apps
 
-[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds two apps that
-consume the SDK as a local Swift package, so a breaking API change fails their build:
-`ConfigDirectorSample` for iOS and iPadOS, and `ConfigDirectorSampleWatch` for watchOS. See
+[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds three apps
+that consume the SDK as a local Swift package, so a breaking API change fails their build:
+`ConfigDirectorSample` for iOS and iPadOS, `ConfigDirectorSampleMac` for macOS, and
+`ConfigDirectorSampleWatch` for watchOS. See
 [Samples/README.md](Samples/README.md) for how to point them at your own ConfigDirector project.
 
 Building them needs no SDK key — without one each app says so and runs anyway:
@@ -143,11 +144,21 @@ xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
   -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build
 
 xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+  -scheme ConfigDirectorSampleMac -destination 'generic/platform=macOS' build
+
+xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
   -scheme ConfigDirectorSampleWatch -destination 'generic/platform=watchOS Simulator' build
 ```
 
+Two target settings are load-bearing and not obvious, because both fail past the build rather than
+in it. `ConfigDirectorSampleWatch` sets `INFOPLIST_KEY_WKWatchOnly` — a single-target watch app
+without it builds clean and is then rejected at install for naming no companion app.
+`ConfigDirectorSampleMac` sets `ENABLE_OUTGOING_NETWORK_CONNECTIONS` — a sandboxed Mac app without
+it builds and launches, and every request it makes fails.
+
 The `.xcodeproj` is written by hand rather than generated, so it needs no extra tooling to open. It
-uses file-system-synchronized groups, which means adding or removing a source file under
-`Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not
-touch the project file at all. `Samples/Shared` belongs to both targets: it holds everything that
-calls the SDK, leaving each app only its entry point and its own layout.
+uses file-system-synchronized groups, which means adding or removing a source file under any of
+`Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleMac`,
+`Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not touch the project file at all.
+`Samples/Shared` belongs to all three targets: it holds everything that calls the SDK, leaving each
+app only its entry point and its own layout.

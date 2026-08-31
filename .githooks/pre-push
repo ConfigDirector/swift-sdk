@@ -103,6 +103,12 @@ run "sample app (iOS)" xcodebuild build \
     -destination 'generic/platform=iOS Simulator' \
     -quiet
 
+run "sample app (macOS)" xcodebuild build \
+    -project Samples/ConfigDirectorSample.xcodeproj \
+    -scheme ConfigDirectorSampleMac \
+    -destination 'generic/platform=macOS' \
+    -quiet
+
 run "sample app (watchOS)" xcodebuild build \
     -project Samples/ConfigDirectorSample.xcodeproj \
     -scheme ConfigDirectorSampleWatch \

@@ -96,6 +96,9 @@ jobs:
           - name: iOS
             scheme: ConfigDirectorSample
             destination: generic/platform=iOS Simulator
+          - name: macOS
+            scheme: ConfigDirectorSampleMac
+            destination: generic/platform=macOS
           - name: watchOS
             scheme: ConfigDirectorSampleWatch
             destination: generic/platform=watchOS Simulator
