@@ -24,6 +24,12 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: .github/scripts/check-release-version.sh "$TAG"
 
+      # The release notes come from CHANGELOG.md, so a version with no section there cannot be
+      # released. Checking it here means that fails in seconds rather than after the whole matrix.
+      - env:
+          TAG: ${{ github.ref_name }}
+        run: .github/scripts/changelog-section.sh "${TAG#v}" > /dev/null
+
   ci:
     name: CI
     needs: version
@@ -44,6 +50,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          notes=$(mktemp)
+          .github/scripts/changelog-section.sh "${TAG#v}" > "$notes"
+
           case "$TAG" in
               *-*) prerelease=--prerelease ;;
               *) prerelease= ;;
@@ -51,6 +60,6 @@ jobs:
 
           gh release create "$TAG" \
             --verify-tag \
-            --generate-notes \
             --title "$TAG" \
+            --notes-file "$notes" \
             $prerelease

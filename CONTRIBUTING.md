@@ -188,22 +188,28 @@ app only its entry point and its own layout.
 Swift Package Manager resolves a version straight from a git tag, so the tag *is* the release —
 there is no artifact to upload and no registry to push to.
 
-1. Bump `sdkVersion` in
+1. Rename the `## [Unreleased]` heading in [CHANGELOG.md](CHANGELOG.md) to
+   `## [X.Y.Z] - YYYY-MM-DD`, and start a fresh empty `## [Unreleased]` above it.
+2. Bump `sdkVersion` in
    [Sources/ConfigDirector/Internal/Constants.swift](Sources/ConfigDirector/Internal/Constants.swift)
-   and commit it.
-2. Tag that commit `vX.Y.Z` and push the tag.
+   to match.
+3. Commit both, tag that commit `vX.Y.Z`, and push the tag.
 
 [.github/workflows/release.yml](.github/workflows/release.yml) does the rest: it checks the tag
-against `Constants.sdkVersion`, runs the whole CI workflow — the same jobs a branch push runs, via
-`workflow_call` rather than a second copy of the matrix — and only then creates the GitHub release
-with generated notes. A tag with a hyphen in it (`v1.0.0-rc.1`) is published as a prerelease.
+against `Constants.sdkVersion` and against CHANGELOG.md, runs the whole CI workflow — the same jobs
+a branch push runs, via `workflow_call` rather than a second copy of the matrix — and only then
+creates the GitHub release, using that changelog section as the notes. A tag with a hyphen in it
+(`v1.0.0-rc.1`) is published as a prerelease.
 
-The version check comes first because it is the cheapest job and the one most likely to fail:
+Both checks run first because they are the cheapest jobs and the ones most likely to fail:
 
 ```bash
 .github/scripts/check-release-version.sh v1.2.0
+.github/scripts/changelog-section.sh 1.2.0
 ```
 
-It exists because `Constants.sdkVersion` is sent to the server with every telemetry batch. A release
-tagged `v1.2.0` whose code reports `1.1.0` produces telemetry that cannot be attributed to what
-anyone actually installed, and nothing else in the build would notice.
+The version check exists because `Constants.sdkVersion` is sent to the server with every telemetry
+batch. A release tagged `v1.2.0` whose code reports `1.1.0` produces telemetry that cannot be
+attributed to what anyone actually installed, and nothing else in the build would notice. The
+changelog check exists because the notes are read from that section — forgetting to stamp the
+heading would otherwise ship a release with no notes at all.
