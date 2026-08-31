@@ -129,6 +129,18 @@ The cheap checks run first, so an unformatted file fails in seconds instead of a
 matrix. It needs SwiftLint and SwiftFormat on `PATH` and refuses to run without them, rather than
 silently skipping a check CI will fail on.
 
+The documentation job is the odd one out: `xcodebuild docbuild` exits 0 even when a `` ``Symbol`` ``
+link in a doc comment resolves to nothing — it renders the link as plain text and ships a page that
+is quietly wrong. DocC records it only in a diagnostics file, so
+[.github/scripts/check-docs-diagnostics.sh](.github/scripts/check-docs-diagnostics.sh) reads that
+file and is what actually fails the build. Run the pair by hand with:
+
+```bash
+xcodebuild docbuild -scheme swift-client-sdk \
+  -destination 'generic/platform=macOS' -derivedDataPath .docs-build -quiet
+.github/scripts/check-docs-diagnostics.sh .docs-build
+```
+
 ## Sample apps
 
 [Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds four apps
@@ -170,3 +182,28 @@ uses file-system-synchronized groups, which means adding or removing a source fi
 `Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not touch the project file at all.
 `Samples/Shared` belongs to all four targets: it holds everything that calls the SDK, leaving each
 app only its entry point and its own layout.
+
+## Releasing
+
+Swift Package Manager resolves a version straight from a git tag, so the tag *is* the release —
+there is no artifact to upload and no registry to push to.
+
+1. Bump `sdkVersion` in
+   [Sources/ConfigDirector/Internal/Constants.swift](Sources/ConfigDirector/Internal/Constants.swift)
+   and commit it.
+2. Tag that commit `vX.Y.Z` and push the tag.
+
+[.github/workflows/release.yml](.github/workflows/release.yml) does the rest: it checks the tag
+against `Constants.sdkVersion`, runs the whole CI workflow — the same jobs a branch push runs, via
+`workflow_call` rather than a second copy of the matrix — and only then creates the GitHub release
+with generated notes. A tag with a hyphen in it (`v1.0.0-rc.1`) is published as a prerelease.
+
+The version check comes first because it is the cheapest job and the one most likely to fail:
+
+```bash
+.github/scripts/check-release-version.sh v1.2.0
+```
+
+It exists because `Constants.sdkVersion` is sent to the server with every telemetry batch. A release
+tagged `v1.2.0` whose code reports `1.1.0` produces telemetry that cannot be attributed to what
+anyone actually installed, and nothing else in the build would notice.

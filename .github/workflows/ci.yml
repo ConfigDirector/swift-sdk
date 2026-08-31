@@ -8,6 +8,9 @@ on:
       - "**"
   pull_request:
   workflow_dispatch:
+  # Lets the release workflow run this exact matrix before it publishes anything, rather than
+  # keeping a second copy of it in step with this one.
+  workflow_call:
 
 permissions:
   contents: read
@@ -82,6 +85,29 @@ jobs:
           swift build \
             --sdk "$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)" \
             -Xswiftc -target -Xswiftc ${{ matrix.target }}
+
+  docs:
+    # A documentation site is generated from the SDK's doc comments, and `xcodebuild docbuild`
+    # exits 0 on a broken symbol link — it just renders the link as plain text. The diagnostics
+    # file it writes is the only place that shows up, so the check is what actually gates it.
+    name: Documentation
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - run: |
+          xcodebuild docbuild \
+            -scheme swift-client-sdk \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath .docs-build \
+            -quiet
+
+      - run: .github/scripts/check-docs-diagnostics.sh .docs-build
 
   sample:
     # The samples consume the SDK as a local package, so a breaking change to the public API fails

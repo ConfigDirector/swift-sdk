@@ -2,7 +2,7 @@
 #
 # Runs the same jobs CI runs, before allowing a push.
 #
-#   swiftformat -> swiftlint -> swift build -> swift test -> iOS/tvOS/watchOS -> sample apps
+#   swiftformat -> swiftlint -> swift build -> swift test -> iOS/tvOS/watchOS -> docs -> samples
 #
 # Install it with:  git config core.hooksPath .githooks
 # Bypass it for a single push with:  git push --no-verify
@@ -96,6 +96,19 @@ build_for_platform() {
 run "build (iOS)" build_for_platform iphoneos arm64-apple-ios15.0
 run "build (tvOS)" build_for_platform appletvos arm64-apple-tvos15.0
 run "build (watchOS)" build_for_platform watchos arm64_32-apple-watchos8.0
+
+# `docbuild` exits 0 on a broken documentation link, so the diagnostics file is the real check.
+build_docs() {
+    rm -rf .docs-build
+    xcodebuild docbuild \
+        -scheme swift-client-sdk \
+        -destination 'generic/platform=macOS' \
+        -derivedDataPath .docs-build \
+        -quiet \
+        && .github/scripts/check-docs-diagnostics.sh .docs-build
+}
+
+run "documentation" build_docs
 
 run "sample app (iOS)" xcodebuild build \
     -project Samples/ConfigDirectorSample.xcodeproj \

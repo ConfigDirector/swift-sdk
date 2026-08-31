@@ -1,0 +1,56 @@
+name: release
+
+# Publishing is a tag push: Swift Package Manager resolves a version straight from the git tag, so
+# the tag is the release. This workflow is what stops a tag from becoming one before it is checked.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      # Cheapest gate first: a tag that disagrees with Constants.sdkVersion would ship an SDK
+      # reporting a version nobody can install, and there is no point building for 20 minutes first.
+      - env:
+          TAG: ${{ github.ref_name }}
+        run: .github/scripts/check-release-version.sh "$TAG"
+
+  ci:
+    name: CI
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish
+    needs: [version, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      # --verify-tag refuses to invent a tag if this ever runs without one.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          case "$TAG" in
+              *-*) prerelease=--prerelease ;;
+              *) prerelease= ;;
+          esac
+
+          gh release create "$TAG" \
+            --verify-tag \
+            --generate-notes \
+            --title "$TAG" \
+            $prerelease
