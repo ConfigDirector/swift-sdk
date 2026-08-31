@@ -84,11 +84,21 @@ jobs:
             -Xswiftc -target -Xswiftc ${{ matrix.target }}
 
   sample:
-    # The sample consumes the SDK as a local package, so a breaking change to the public API fails
-    # here instead of reaching someone's app. It needs no SDK key to build.
-    name: Sample app
+    # The samples consume the SDK as a local package, so a breaking change to the public API fails
+    # here instead of reaching someone's app. Neither needs an SDK key to build.
+    name: Sample app (${{ matrix.name }})
     runs-on: macos-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS
+            scheme: ConfigDirectorSample
+            destination: generic/platform=iOS Simulator
+          - name: watchOS
+            scheme: ConfigDirectorSampleWatch
+            destination: generic/platform=watchOS Simulator
     steps:
       - uses: actions/checkout@v5
 
@@ -99,6 +109,6 @@ jobs:
       - run: |
           xcodebuild build \
             -project Samples/ConfigDirectorSample.xcodeproj \
-            -scheme ConfigDirectorSample \
-            -destination 'generic/platform=iOS Simulator' \
+            -scheme ${{ matrix.scheme }} \
+            -destination '${{ matrix.destination }}' \
             -quiet

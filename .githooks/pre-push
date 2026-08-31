@@ -2,7 +2,7 @@
 #
 # Runs the same jobs CI runs, before allowing a push.
 #
-#   swiftformat -> swiftlint -> swift build -> swift test -> iOS/tvOS/watchOS -> sample app
+#   swiftformat -> swiftlint -> swift build -> swift test -> iOS/tvOS/watchOS -> sample apps
 #
 # Install it with:  git config core.hooksPath .githooks
 # Bypass it for a single push with:  git push --no-verify
@@ -97,10 +97,16 @@ run "build (iOS)" build_for_platform iphoneos arm64-apple-ios15.0
 run "build (tvOS)" build_for_platform appletvos arm64-apple-tvos15.0
 run "build (watchOS)" build_for_platform watchos arm64_32-apple-watchos8.0
 
-run "sample app" xcodebuild build \
+run "sample app (iOS)" xcodebuild build \
     -project Samples/ConfigDirectorSample.xcodeproj \
     -scheme ConfigDirectorSample \
     -destination 'generic/platform=iOS Simulator' \
+    -quiet
+
+run "sample app (watchOS)" xcodebuild build \
+    -project Samples/ConfigDirectorSample.xcodeproj \
+    -scheme ConfigDirectorSampleWatch \
+    -destination 'generic/platform=watchOS Simulator' \
     -quiet
 
 printf '\n%spre-push checks passed%s\n' "$green" "$reset"

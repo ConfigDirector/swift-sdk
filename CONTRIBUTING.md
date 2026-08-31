@@ -129,19 +129,25 @@ The cheap checks run first, so an unformatted file fails in seconds instead of a
 matrix. It needs SwiftLint and SwiftFormat on `PATH` and refuses to run without them, rather than
 silently skipping a check CI will fail on.
 
-## Sample app
+## Sample apps
 
-[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) is an iOS app that
-consumes the SDK as a local Swift package, so a breaking API change fails its build. See
-[Samples/README.md](Samples/README.md) for how to point it at your own ConfigDirector project.
+[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds two apps that
+consume the SDK as a local Swift package, so a breaking API change fails their build:
+`ConfigDirectorSample` for iOS and iPadOS, and `ConfigDirectorSampleWatch` for watchOS. See
+[Samples/README.md](Samples/README.md) for how to point them at your own ConfigDirector project.
 
-Building it needs no SDK key — without one the app says so and runs anyway:
+Building them needs no SDK key — without one each app says so and runs anyway:
 
 ```bash
 xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
   -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build
+
+xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+  -scheme ConfigDirectorSampleWatch -destination 'generic/platform=watchOS Simulator' build
 ```
 
 The `.xcodeproj` is written by hand rather than generated, so it needs no extra tooling to open. It
-uses a file-system-synchronized group, which means adding or removing a source file under
-`Samples/ConfigDirectorSample` does not touch the project file at all.
+uses file-system-synchronized groups, which means adding or removing a source file under
+`Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not
+touch the project file at all. `Samples/Shared` belongs to both targets: it holds everything that
+calls the SDK, leaving each app only its entry point and its own layout.
