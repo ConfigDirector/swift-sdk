@@ -109,6 +109,12 @@ run "sample app (macOS)" xcodebuild build \
     -destination 'generic/platform=macOS' \
     -quiet
 
+run "sample app (tvOS)" xcodebuild build \
+    -project Samples/ConfigDirectorSample.xcodeproj \
+    -scheme ConfigDirectorSampleTV \
+    -destination 'generic/platform=tvOS Simulator' \
+    -quiet
+
 run "sample app (watchOS)" xcodebuild build \
     -project Samples/ConfigDirectorSample.xcodeproj \
     -scheme ConfigDirectorSampleWatch \

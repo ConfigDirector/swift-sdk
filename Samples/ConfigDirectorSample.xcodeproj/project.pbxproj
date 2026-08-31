@@ -10,6 +10,7 @@
 		CD0000000000000000000012 /* ConfigDirector in Frameworks */ = {isa = PBXBuildFile; productRef = CD0000000000000000000011 /* ConfigDirector */; };
 		CD0000000000000000000023 /* ConfigDirector in Frameworks */ = {isa = PBXBuildFile; productRef = CD0000000000000000000022 /* ConfigDirector */; };
 		CD000000000000000000002E /* ConfigDirector in Frameworks */ = {isa = PBXBuildFile; productRef = CD000000000000000000002D /* ConfigDirector */; };
+		CD0000000000000000000039 /* ConfigDirector in Frameworks */ = {isa = PBXBuildFile; productRef = CD0000000000000000000038 /* ConfigDirector */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,7 @@
 		CD0000000000000000000016 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CD0000000000000000000018 /* ConfigDirectorSampleWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ConfigDirectorSampleWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD0000000000000000000024 /* ConfigDirectorSampleMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ConfigDirectorSampleMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD000000000000000000002F /* ConfigDirectorSampleTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ConfigDirectorSampleTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -36,6 +38,11 @@
 		CD0000000000000000000025 /* ConfigDirectorSampleMac */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ConfigDirectorSampleMac;
+			sourceTree = "<group>";
+		};
+		CD0000000000000000000030 /* ConfigDirectorSampleTV */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ConfigDirectorSampleTV;
 			sourceTree = "<group>";
 		};
 		CD000000000000000000001A /* Shared */ = {
@@ -70,6 +77,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CD0000000000000000000033 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CD0000000000000000000039 /* ConfigDirector in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -79,6 +94,7 @@
 				CD0000000000000000000004 /* ConfigDirectorSample */,
 				CD0000000000000000000019 /* ConfigDirectorSampleWatch */,
 				CD0000000000000000000025 /* ConfigDirectorSampleMac */,
+				CD0000000000000000000030 /* ConfigDirectorSampleTV */,
 				CD000000000000000000001A /* Shared */,
 				CD0000000000000000000017 /* Supporting Files */,
 				CD0000000000000000000003 /* Products */,
@@ -91,6 +107,7 @@
 				CD0000000000000000000005 /* ConfigDirectorSample.app */,
 				CD0000000000000000000018 /* ConfigDirectorSampleWatch.app */,
 				CD0000000000000000000024 /* ConfigDirectorSampleMac.app */,
+				CD000000000000000000002F /* ConfigDirectorSampleTV.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -181,6 +198,30 @@
 			productReference = CD0000000000000000000024 /* ConfigDirectorSampleMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CD0000000000000000000031 /* ConfigDirectorSampleTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD0000000000000000000035 /* Build configuration list for PBXNativeTarget "ConfigDirectorSampleTV" */;
+			buildPhases = (
+				CD0000000000000000000032 /* Sources */,
+				CD0000000000000000000033 /* Frameworks */,
+				CD0000000000000000000034 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CD0000000000000000000030 /* ConfigDirectorSampleTV */,
+				CD000000000000000000001A /* Shared */,
+			);
+			name = ConfigDirectorSampleTV;
+			packageProductDependencies = (
+				CD0000000000000000000038 /* ConfigDirector */,
+			);
+			productName = ConfigDirectorSampleTV;
+			productReference = CD000000000000000000002F /* ConfigDirectorSampleTV.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -198,6 +239,9 @@
 						CreatedOnToolsVersion = 26.0;
 					};
 					CD0000000000000000000026 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					CD0000000000000000000031 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -222,6 +266,7 @@
 				CD0000000000000000000006 /* ConfigDirectorSample */,
 				CD000000000000000000001B /* ConfigDirectorSampleWatch */,
 				CD0000000000000000000026 /* ConfigDirectorSampleMac */,
+				CD0000000000000000000031 /* ConfigDirectorSampleTV */,
 			);
 		};
 /* End PBXProject section */
@@ -248,6 +293,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CD0000000000000000000034 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -266,6 +318,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CD0000000000000000000027 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CD0000000000000000000032 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -481,6 +540,56 @@
 			};
 			name = Release;
 		};
+		CD0000000000000000000036 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "ConfigDirector Sample";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.configdirector.sample.tv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Debug;
+		};
+		CD0000000000000000000037 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "ConfigDirector Sample";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.configdirector.sample.tv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 15.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -520,6 +629,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		CD0000000000000000000035 /* Build configuration list for PBXNativeTarget "ConfigDirectorSampleTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CD0000000000000000000036 /* Debug */,
+				CD0000000000000000000037 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -539,6 +657,10 @@
 			productName = ConfigDirector;
 		};
 		CD000000000000000000002D /* ConfigDirector */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ConfigDirector;
+		};
+		CD0000000000000000000038 /* ConfigDirector */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ConfigDirector;
 		};

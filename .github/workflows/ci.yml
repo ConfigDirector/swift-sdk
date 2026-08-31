@@ -99,6 +99,9 @@ jobs:
           - name: macOS
             scheme: ConfigDirectorSampleMac
             destination: generic/platform=macOS
+          - name: tvOS
+            scheme: ConfigDirectorSampleTV
+            destination: generic/platform=tvOS Simulator
           - name: watchOS
             scheme: ConfigDirectorSampleWatch
             destination: generic/platform=watchOS Simulator

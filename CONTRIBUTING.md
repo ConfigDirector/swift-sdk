@@ -131,10 +131,10 @@ silently skipping a check CI will fail on.
 
 ## Sample apps
 
-[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds three apps
+[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds four apps
 that consume the SDK as a local Swift package, so a breaking API change fails their build:
-`ConfigDirectorSample` for iOS and iPadOS, `ConfigDirectorSampleMac` for macOS, and
-`ConfigDirectorSampleWatch` for watchOS. See
+`ConfigDirectorSample` for iOS and iPadOS, `ConfigDirectorSampleMac` for macOS,
+`ConfigDirectorSampleTV` for tvOS, and `ConfigDirectorSampleWatch` for watchOS. See
 [Samples/README.md](Samples/README.md) for how to point them at your own ConfigDirector project.
 
 Building them needs no SDK key — without one each app says so and runs anyway:
@@ -147,8 +147,16 @@ xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
   -scheme ConfigDirectorSampleMac -destination 'generic/platform=macOS' build
 
 xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+  -scheme ConfigDirectorSampleTV -destination 'generic/platform=tvOS Simulator' build
+
+xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
   -scheme ConfigDirectorSampleWatch -destination 'generic/platform=watchOS Simulator' build
 ```
+
+Building `ConfigDirectorSampleTV` needs the tvOS platform installed (`xcodebuild -downloadPlatform
+tvOS`). Having the tvOS SDK is not enough — without the platform, xcodebuild reports no eligible
+destination even for `generic/platform=tvOS`, though `swift build --sdk appletvos` still works, so
+the SDK's own tvOS job in the matrix above is unaffected.
 
 Two target settings are load-bearing and not obvious, because both fail past the build rather than
 in it. `ConfigDirectorSampleWatch` sets `INFOPLIST_KEY_WKWatchOnly` — a single-target watch app
@@ -158,7 +166,7 @@ it builds and launches, and every request it makes fails.
 
 The `.xcodeproj` is written by hand rather than generated, so it needs no extra tooling to open. It
 uses file-system-synchronized groups, which means adding or removing a source file under any of
-`Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleMac`,
+`Samples/ConfigDirectorSample`, `Samples/ConfigDirectorSampleMac`, `Samples/ConfigDirectorSampleTV`,
 `Samples/ConfigDirectorSampleWatch` or `Samples/Shared` does not touch the project file at all.
-`Samples/Shared` belongs to all three targets: it holds everything that calls the SDK, leaving each
+`Samples/Shared` belongs to all four targets: it holds everything that calls the SDK, leaving each
 app only its entry point and its own layout.
