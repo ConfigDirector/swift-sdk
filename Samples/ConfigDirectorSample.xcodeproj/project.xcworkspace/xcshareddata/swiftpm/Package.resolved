@@ -1,0 +1,15 @@
+{
+  "originHash" : "269bcb385390c4753bf610e293048b6a9ba54dece5e4e9dd163b3ed8eeaa6185",
+  "pins" : [
+    {
+      "identity" : "swift-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ConfigDirector/swift-sdk.git",
+      "state" : {
+        "revision" : "cf6fb318c2b23c76823452be218fa830eac2bcc9",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}

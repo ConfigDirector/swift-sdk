@@ -256,7 +256,7 @@
 			mainGroup = CD0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				CD0000000000000000000010 /* XCLocalSwiftPackageReference ".." */,
+				CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CD0000000000000000000003 /* Products */;
@@ -640,28 +640,36 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		CD0000000000000000000010 /* XCLocalSwiftPackageReference ".." */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ..;
+/* Begin XCRemoteSwiftPackageReference section */
+		CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ConfigDirector/swift-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		CD0000000000000000000011 /* ConfigDirector */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = ConfigDirector;
 		};
 		CD0000000000000000000022 /* ConfigDirector */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = ConfigDirector;
 		};
 		CD000000000000000000002D /* ConfigDirector */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = ConfigDirector;
 		};
 		CD0000000000000000000038 /* ConfigDirector */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = CD0000000000000000000010 /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = ConfigDirector;
 		};
 /* End XCSwiftPackageProductDependency section */

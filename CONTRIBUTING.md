@@ -143,27 +143,52 @@ xcodebuild docbuild -scheme swift-client-sdk \
 
 ## Sample apps
 
-[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds four apps
-that consume the SDK as a local Swift package, so a breaking API change fails their build:
+[Samples/ConfigDirectorSample.xcodeproj](Samples/ConfigDirectorSample.xcodeproj) holds four apps:
 `ConfigDirectorSample` for iOS and iPadOS, `ConfigDirectorSampleMac` for macOS,
 `ConfigDirectorSampleTV` for tvOS, and `ConfigDirectorSampleWatch` for watchOS. See
 [Samples/README.md](Samples/README.md) for how to point them at your own ConfigDirector project.
 
+### Building them against this checkout
+
+The project depends on the *published* package — `https://github.com/ConfigDirector/swift-sdk.git`
+from `1.0.0` — because that is what someone adding the SDK to their own app writes, and a sample
+that reads differently from the documented setup is a sample that teaches the wrong thing. Opening
+the project on its own therefore builds the released SDK, not your working tree.
+
+[Samples/ConfigDirectorSample-Local.xcworkspace](Samples/ConfigDirectorSample-Local.xcworkspace) is
+what bridges the two. It contains the sample project *and* this repository's package root, and a
+local package in a workspace takes precedence over a remote dependency with the same identity — so
+the same targets, unmodified, compile against `Sources/` instead of a tag. Nothing is fetched. That
+is the workspace CI and the pre-push hook build, which is what keeps a breaking API change failing
+here rather than reaching someone's app.
+
+Work on the SDK through the workspace; open the bare project only to check what a consumer gets.
+
+```bash
+open Samples/ConfigDirectorSample-Local.xcworkspace   # samples + this checkout
+open Samples/ConfigDirectorSample.xcodeproj           # samples + the released SDK
+```
+
 Building them needs no SDK key — without one each app says so and runs anyway:
 
 ```bash
-xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
   -scheme ConfigDirectorSample -destination 'generic/platform=iOS Simulator' build
 
-xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
   -scheme ConfigDirectorSampleMac -destination 'generic/platform=macOS' build
 
-xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
   -scheme ConfigDirectorSampleTV -destination 'generic/platform=tvOS Simulator' build
 
-xcodebuild -project Samples/ConfigDirectorSample.xcodeproj \
+xcodebuild -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
   -scheme ConfigDirectorSampleWatch -destination 'generic/platform=watchOS Simulator' build
 ```
+
+The workspace overriding the dependency is easy to believe and worth confirming after a change to
+either file: break something in `Sources/ConfigDirector` on purpose, build the workspace, and check
+that the compile error names a file under `Sources/`. A build that succeeds is a build that
+resolved the tag instead.
 
 Building `ConfigDirectorSampleTV` needs the tvOS platform installed (`xcodebuild -downloadPlatform
 tvOS`). Having the tvOS SDK is not enough — without the platform, xcodebuild reports no eligible
@@ -194,6 +219,12 @@ there is no artifact to upload and no registry to push to.
    [Sources/ConfigDirector/Internal/Constants.swift](Sources/ConfigDirector/Internal/Constants.swift)
    to match.
 3. Commit both, tag that commit `vX.Y.Z`, and push the tag.
+
+A major bump needs one more edit: the samples' project pins the SDK `upToNextMajorVersion` from
+`1.0.0`, so it follows every `1.x` on its own and stops at `2.0.0`. Raise `minimumVersion` in
+[Samples/ConfigDirectorSample.xcodeproj/project.pbxproj](Samples/ConfigDirectorSample.xcodeproj/project.pbxproj)
+and refresh the `Package.resolved` beside it. CI will not catch a stale pin — it builds the
+workspace, which never resolves the requirement at all.
 
 [.github/workflows/release.yml](.github/workflows/release.yml) does the rest: it checks the tag
 against `Constants.sdkVersion` and against CHANGELOG.md, runs the whole CI workflow — the same jobs

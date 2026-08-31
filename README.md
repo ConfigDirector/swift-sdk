@@ -18,6 +18,10 @@ Open the project and pick a scheme:
 open Samples/ConfigDirectorSample.xcodeproj
 ```
 
+They depend on this SDK as a released package, exactly as your own app would. To build them
+against a checkout of this repository instead, open
+[`Samples/ConfigDirectorSample-Local.xcworkspace`](Samples/ConfigDirectorSample-Local.xcworkspace).
+
 See [`Samples/README.md`](Samples/README.md) to point them at your own ConfigDirector project.
 
 ## Getting Help

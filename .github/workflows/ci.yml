@@ -110,8 +110,9 @@ jobs:
       - run: .github/scripts/check-docs-diagnostics.sh .docs-build
 
   sample:
-    # The samples consume the SDK as a local package, so a breaking change to the public API fails
-    # here instead of reaching someone's app. Neither needs an SDK key to build.
+    # The samples' project depends on the released package the way a consumer's app would, so the
+    # local-override workspace is what gets built here: it swaps in this checkout, and a breaking
+    # change to the public API fails here instead of reaching someone's app. No SDK key needed.
     name: Sample app (${{ matrix.name }})
     runs-on: macos-latest
     timeout-minutes: 20
@@ -140,7 +141,7 @@ jobs:
 
       - run: |
           xcodebuild build \
-            -project Samples/ConfigDirectorSample.xcodeproj \
+            -workspace Samples/ConfigDirectorSample-Local.xcworkspace \
             -scheme ${{ matrix.scheme }} \
             -destination '${{ matrix.destination }}' \
             -quiet

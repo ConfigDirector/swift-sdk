@@ -29,6 +29,35 @@ Everything that touches the SDK lives in [Shared](Shared) and compiles into both
 only its entry point and its own layout, so the two differ in presentation and not in how they use
 the SDK.
 
+## How they depend on the SDK
+
+The project adds ConfigDirector the way your own app would — as a released Swift package, resolved
+from a version rather than from a path:
+
+```
+https://github.com/ConfigDirector/swift-sdk.git
+```
+
+In Xcode that is **File → Add Package Dependencies…**, pasting that URL and taking the default
+*Up to Next Major Version*. In a `Package.swift` it is:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/ConfigDirector/swift-sdk.git", from: "1.0.0"),
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [.product(name: "ConfigDirector", package: "swift-sdk")]
+    ),
+]
+```
+
+Either way the module you import is `ConfigDirector`, which is what
+[Shared/SampleConfiguration.swift](Shared/SampleConfiguration.swift) and
+[Shared/ConfigViews.swift](Shared/ConfigViews.swift) do. Nothing in these apps depends on living
+inside the SDK's repository.
+
 ## Running them
 
 1. Copy the example config and fill in the client SDK key from your ConfigDirector dashboard:
@@ -45,6 +74,8 @@ the SDK.
    open ConfigDirectorSample.xcodeproj
    ```
 
+   Xcode fetches the SDK on first open, so that one needs a network connection.
+
 `Config.local.xcconfig` is git-ignored, and all four apps read the same copy of it. Its values reach
 them through the `Info.plist` and are read back with `Bundle.main.object(forInfoDictionaryKey:)`,
 so nothing has to be committed. Without it each app builds and runs, and says it has no SDK
@@ -59,8 +90,23 @@ The Context picker switches between that configured user, a built-in beta tester
 re-evaluates every config against the new identity — the way to watch a targeting rule take effect
 without rebuilding.
 
-The project references the SDK as a local Swift package pointing at this checkout, so a breaking
-API change fails the samples' build rather than shipping.
+## Building them against a local SDK checkout
+
+Contributors to the SDK need the opposite of the above: the same four apps compiled against the
+working tree, so a breaking API change fails here instead of reaching someone's app.
+
+[ConfigDirectorSample-Local.xcworkspace](ConfigDirectorSample-Local.xcworkspace) is that. It holds
+the sample project alongside the SDK's package root, and a local package in a workspace wins over a
+remote dependency with the same identity — so every target builds against `../Sources` and nothing
+is fetched. The targets, schemes and settings are the same ones; only where `ConfigDirector` comes
+from changes.
+
+```sh
+open ConfigDirectorSample-Local.xcworkspace
+```
+
+This is what CI and the pre-push hook build. See
+[Contributing](../CONTRIBUTING.md#building-them-against-this-checkout) for the details.
 
 ## What they show
 
