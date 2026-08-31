@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-30
+
 ### Added
 
 - `ConfigDirectorClient`, evaluating configs against a `ConfigDirectorContext` of `id`, `name`,
