@@ -193,7 +193,7 @@ final class ConfigStore: Sendable {
 
         evaluations.emit(ConfigEvaluation(
             key: key,
-            value: result.value,
+            value: ConfigEvaluationValue(result.value),
             valueID: result.valueID,
             isDefaultValue: result.usedDefault,
             reason: result.reason,
