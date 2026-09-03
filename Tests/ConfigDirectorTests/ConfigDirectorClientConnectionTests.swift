@@ -242,4 +242,51 @@ struct ConfigDirectorClientConnectionTests {
         #expect(fixture.pollRequests.count == 1)
         #expect(client.value(for: "dark-mode", default: false) == true)
     }
+
+    @Test func pollingModeAppliesTheNewContextWhenItsFirstFetchFailsTransiently() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .polling, pollingInterval: 0.05)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "before"))
+
+        StubURLProtocol.enqueue([.json("", statusCode: 503)], for: fixture.pollURL)
+        fixture.servePolling(servedConfigSet)
+        let events = StreamReader(client.events)
+
+        await client.updateContext(ConfigDirectorContext(id: "after"))
+
+        #expect(client.context?.id == "after")
+        let contextUpdated = await events.next {
+            if case .contextUpdated = $0 {
+                true
+            } else {
+                false
+            }
+        }
+        #expect(contextUpdated != nil)
+        let ready = await events.next {
+            if case .ready(.contextUpdate) = $0 {
+                true
+            } else {
+                false
+            }
+        }
+        #expect(ready != nil)
+        #expect(fixture.pollRequests.last?.payload?.givenContext.id == "after")
+    }
+
+    @Test func oneTimeModeKeepsThePreviousContextWhenAnUpdateFails() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .oneTime)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "before"))
+
+        StubURLProtocol.enqueue([.json("", statusCode: 503)], for: fixture.pollURL)
+        await client.updateContext(ConfigDirectorContext(id: "after"))
+
+        #expect(client.context?.id == "before")
+        #expect(client.value(for: "dark-mode", default: false) == true)
+    }
 }

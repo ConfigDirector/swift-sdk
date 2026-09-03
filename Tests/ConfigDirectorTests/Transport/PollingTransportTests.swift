@@ -115,10 +115,22 @@ struct PollingTransportTests {
         #expect(fixture.received.isEmpty)
     }
 
-    @Test func keepsPollingAfterATransientFailure() async throws {
+    @Test func keepsPollingAfterATransientFailureWithoutThrowing() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
         defer { transport.close() }
         fixture.enqueue(.json("", statusCode: 503), .json(configSetJSON(greeting: "hello")))
+
+        try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+
+        #expect(await fixture.waitForConfigSets(1))
+        #expect(fixture.received.first?.configs["greeting"]?.value == "hello")
+    }
+
+    @Test func oneTimeThrowsOnATransientFailureSinceNothingWillRetry() async throws {
+        let fixture = makeFixture()
+        let transport = PollingTransport.oneTime(options: fixture.options, onConfigSet: fixture.onConfigSet)
+        defer { transport.close() }
+        fixture.enqueue(.json("", statusCode: 503))
 
         let error = await #expect(throws: ConfigDirectorError.self) {
             try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
@@ -129,13 +141,11 @@ struct PollingTransportTests {
             return
         }
         #expect(statusCode == 503)
-
-        #expect(await fixture.waitForConfigSets(1))
-        #expect(fixture.received.first?.configs["greeting"]?.value == "hello")
     }
 
     @Test func throwsWhenTheResponseIsNotAConfigSet() async throws {
-        let (fixture, transport) = makeTransport()
+        let fixture = makeFixture()
+        let transport = PollingTransport.oneTime(options: fixture.options, onConfigSet: fixture.onConfigSet)
         defer { transport.close() }
         fixture.enqueue(.json("not json"))
 

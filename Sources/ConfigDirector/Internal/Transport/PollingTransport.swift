@@ -1,9 +1,5 @@
 import Foundation
 
-/// A ``Transport`` that fetches config state on connect and then re-fetches it on a fixed interval.
-///
-/// A `nil` polling interval disables the interval, which is how the one-time transport fetches
-/// config state on connect only.
 final class PollingTransport: Transport {
     private struct State {
         var polling: Task<Void, Never>?
@@ -37,7 +33,6 @@ final class PollingTransport: Transport {
         )
     }
 
-    /// A transport that fetches config state on connect only, never polling for updates afterwards.
     static func oneTime(
         options: TransportOptions,
         onConfigSet: @escaping ConfigSetHandler
@@ -56,12 +51,16 @@ final class PollingTransport: Transport {
         }
 
         disconnect()
-
-        // A transient failure on the first fetch must not leave the client without a connection:
-        // polling starts regardless of how that fetch went.
         defer { schedulePolling(context: context, timeout: timeout) }
 
-        try await fetch(context: context, timeout: timeout)
+        do {
+            try await fetch(context: context, timeout: timeout)
+        } catch let error where willRetryOnInterval {
+            options.logger.warn(
+                "[PollingTransport] Error fetching config state, polling continues on the interval",
+                error: error
+            )
+        }
     }
 
     func disconnect() {
@@ -73,9 +72,13 @@ final class PollingTransport: Transport {
         disconnect()
     }
 
+    private var willRetryOnInterval: Bool {
+        guard let pollingInterval, pollingInterval > 0 else { return false }
+        return !state.withLock { $0.hasFatalError }
+    }
+
     private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval) {
-        guard let pollingInterval, pollingInterval > 0,
-              !state.withLock({ $0.hasFatalError }) else { return }
+        guard let pollingInterval, willRetryOnInterval else { return }
 
         let polling = Task { [weak self] in
             while !Task.isCancelled {
@@ -97,7 +100,6 @@ final class PollingTransport: Transport {
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
-        // A cached config set would serve stale values after a change in the dashboard.
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try options.payload(for: context, lastUpdateTimestamp: lastUpdateTimestamp)
