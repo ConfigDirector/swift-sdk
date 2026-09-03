@@ -1,7 +1,5 @@
 import Foundation
 
-/// Holds the config state the client evaluates against, and everything that observes it: the ready
-/// signal, the event broadcaster, and the active watch streams.
 final class ConfigStore: Sendable {
     let events = Broadcaster<ClientEvent>()
 
@@ -59,7 +57,6 @@ final class ConfigStore: Sendable {
         state.withLock { $0.isReady = false }
     }
 
-    /// Waits until config state arrives, at most `timeout` seconds.
     func waitUntilReady(timeout: TimeInterval) async {
         let id = UUID()
         let timeoutTask = Task { [weak self] in
@@ -87,13 +84,16 @@ final class ConfigStore: Sendable {
     func handleConfigSet(_ configSet: ConfigSet) {
         let keys = Array(configSet.configs.keys)
         let watchers = state.withLock { state -> [Watcher] in
-            if state.hasReceivedConfigSet, configSet.kind == .delta {
+            let isDelta = state.hasReceivedConfigSet && configSet.kind == .delta
+            if isDelta {
                 state.configs.merge(configSet.configs) { _, updated in updated }
             } else {
                 state.configs = configSet.configs
             }
             state.hasReceivedConfigSet = true
-            return keys.flatMap { key in state.watchers[key].map { Array($0.values) } ?? [] }
+
+            let affected = isDelta ? keys.compactMap { state.watchers[$0] } : Array(state.watchers.values)
+            return affected.flatMap { Array($0.values) }
         }
 
         markReady()

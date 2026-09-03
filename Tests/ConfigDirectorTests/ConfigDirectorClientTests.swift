@@ -141,6 +141,20 @@ struct ConfigDirectorClientTests {
         #expect(await values.next() == false)
     }
 
+    @Test func watchFallsBackWhenAFullUpdateNoLongerCarriesTheConfig() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient()
+        defer { client.close() }
+        await client.initialize()
+
+        let values = StreamReader(client.values(for: "welcome-message", default: "fallback"))
+        #expect(await values.next() == "Hello")
+
+        fixture.pushToStream(configSetJSON([ServedConfig("dark-mode", "boolean", "false")]))
+        #expect(await values.next() == "fallback")
+    }
+
     @Test func watchDoesNotRepeatIdenticalValues() async throws {
         let fixture = ClientFixture()
         fixture.serveStream(servedConfigSet)
