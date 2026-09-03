@@ -29,6 +29,7 @@ public final class ConfigDirectorClient: Sendable {
     private let telemetry: any TelemetryClient
     private let lifecycle: any AppLifecycleObserver
     private let connectionState = Locked(ConnectionState())
+    private let connectQueue = SerialAsyncQueue()
 
     /// Creates a client for `clientSDKKey`, the client SDK key from the ConfigDirector dashboard.
     ///
@@ -268,6 +269,10 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     private func connect(context: ConfigDirectorContext?, reason: ConnectReason) async {
+        await connectQueue.enqueue { [self] in await connectNow(context: context, reason: reason) }
+    }
+
+    private func connectNow(context: ConfigDirectorContext?, reason: ConnectReason) async {
         store.beginConnect(reason: reason)
         let startedAt = Date()
 
@@ -282,8 +287,6 @@ public final class ConfigDirectorClient: Sendable {
         telemetry.updateContext(context)
         store.setContext(context)
 
-        // The transport may have spent part of the budget connecting; only the remainder is left to
-        // wait for the first config set.
         let remaining = timeout - Date().timeIntervalSince(startedAt)
         if remaining > 0 {
             await store.waitUntilReady(timeout: remaining)
@@ -302,7 +305,6 @@ public final class ConfigDirectorClient: Sendable {
     private func handle(_ phase: AppLifecyclePhase) {
         switch phase {
         case .background:
-            // The app may not come back, so telemetry goes out at the first sign of it leaving.
             Task { [telemetry] in await telemetry.flush() }
 
             let shouldPause = connectionState.withLock { state -> Bool in

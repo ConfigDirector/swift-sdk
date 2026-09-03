@@ -148,4 +148,32 @@ struct ConfigDirectorClientConcurrencyTests {
             "an evaluation stream was left open"
         )
     }
+
+    @Test func overlappingContextUpdatesApplyInTheOrderTheyWereMade() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .polling, timeout: 0.2)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "first"))
+
+        StubURLProtocol.enqueue([.init(chunks: [], endsStream: false)], for: fixture.pollURL)
+        fixture.servePolling(servedConfigSet)
+        let events = StreamReader(client.events)
+
+        async let slow: Void = client.updateContext(ConfigDirectorContext(id: "slow"))
+        await settle(0.05)
+        async let fast: Void = client.updateContext(ConfigDirectorContext(id: "fast"))
+        _ = await (slow, fast)
+
+        #expect(client.context?.id == "fast")
+        #expect(fixture.pollRequests.map(\.payload?.givenContext.id) == ["first", "slow", "fast"])
+
+        var updatedContexts: [String?] = []
+        while let event = await events.next(timeout: 0.1) {
+            if case let .contextUpdated(context) = event {
+                updatedContexts.append(context?.id)
+            }
+        }
+        #expect(updatedContexts == ["slow", "fast"])
+    }
 }
