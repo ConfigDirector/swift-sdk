@@ -216,7 +216,8 @@ final class EventSourceClient: Sendable {
             request.setValue(value, forHTTPHeaderField: name)
         }
 
-        if let lastEventID = state.withLock({ $0.lastEventID }) {
+        let lastEventID = state.withLock { $0.lastEventID } ?? ""
+        if !lastEventID.isEmpty {
             request.setValue(lastEventID, forHTTPHeaderField: "Last-Event-ID")
         }
 

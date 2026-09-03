@@ -109,6 +109,22 @@ struct EventSourceClientTests {
         #expect(client.lastEventID == "42")
     }
 
+    @Test func omitsTheLastEventIDHeaderOnceTheServerResetsItToEmpty() async {
+        let fixture = makeFixture()
+        let client = fixture.client
+        fixture.enqueue(
+            .init(chunks: ["id: 1\ndata: one\n\n", "id\ndata: two\n\n"]),
+            .init(chunks: ["data: three\n\n"], endsStream: false)
+        )
+        defer { client.close() }
+
+        let reader = StreamReader(client.start())
+        _ = await collect(reader, messages: 3)
+
+        #expect(fixture.recorded.count == 2)
+        #expect(fixture.recorded.last?.headers["Last-Event-ID"] == nil)
+    }
+
     @Test func stopsWhenReconnectingIsDeclined() async {
         let observed = Locked<[Int?]>([])
         let fixture = makeFixture { configuration in
