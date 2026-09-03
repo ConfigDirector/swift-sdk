@@ -165,7 +165,7 @@ final class PollingTransport: Transport {
 
         disconnect()
 
-        let text = String(decoding: body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = Self.summary(of: body)
         let error = ConfigDirectorError.connectionFailed(
             message: """
             Connection failed with status: \(status)\(text.isEmpty ? "" : " (\(text))"). This is an \
@@ -175,6 +175,14 @@ final class PollingTransport: Transport {
         )
         state.withLock { $0.fatalError = error }
         throw error
+    }
+
+    private static let maxBodyLengthInErrors = 200
+
+    private static func summary(of body: Data) -> String {
+        let text = String(decoding: body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count > maxBodyLengthInErrors else { return text }
+        return text.prefix(maxBodyLengthInErrors) + "…"
     }
 
     private func dispatch(_ data: Data) throws {

@@ -101,6 +101,23 @@ struct PollingTransportTests {
         #expect(fixture.recorded.count == 1, "a rejected request must not be retried")
     }
 
+    @Test func truncatesALongResponseBodyInTheErrorMessage() async throws {
+        let (fixture, transport) = makeTransport()
+        defer { transport.close() }
+        fixture.enqueue(.json(String(repeating: "x", count: 1000), statusCode: 400))
+
+        let error = await #expect(throws: ConfigDirectorError.self) {
+            try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+        }
+
+        guard case let .connectionFailed(message, _) = try #require(error) else {
+            Issue.record("expected a connection failure, got \(String(describing: error))")
+            return
+        }
+        #expect(message.contains(String(repeating: "x", count: 200) + "…"))
+        #expect(message.contains(String(repeating: "x", count: 201)) == false)
+    }
+
     @Test func rejectsLaterConnectAttemptsAfterAnUnrecoverableFailure() async throws {
         let (fixture, transport) = makeTransport()
         defer { transport.close() }
