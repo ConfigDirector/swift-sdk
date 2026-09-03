@@ -8,8 +8,38 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Changed
+
+- A `baseURL` whose path has no trailing slash, such as `https://proxy.example.com/configdirector`,
+  now keeps that path when the SDK builds its endpoints. It used to resolve relative to the parent,
+  dropping the last path component.
+- In `.polling` mode, a transient failure on the first fetch of `initialize(context:)` or
+  `updateContext(_:)` no longer returns early with an error. The context is applied, polling
+  continues on the interval, and the call waits for the first successful poll up to the timeout,
+  the way `.streaming` mode already behaved. A `.oneTime` client, which never retries, still
+  reports the failure and keeps the previous context.
+- `ConsoleLogger` writes debug messages as private, since they carry config values. They are shown
+  in full while a debugger is attached and redacted from the unified log otherwise. Warnings and
+  errors are still public.
+- Reconnection delays in `.streaming` mode are spread out with jitter, and a connection that opens
+  but delivers nothing no longer resets the backoff.
+
 ### Fixed
 
+- A `values(for:default:)` stream now falls back to its default when a full config update no
+  longer carries its config. It used to keep yielding the last value it had seen.
+- Passing `.infinity` as `timeout` or `pollingInterval` no longer traps.
+- `updateContext(_:)` calls that overlap, or that race with the reconnection performed when the
+  app returns to the foreground, now apply in the order they were made. The last one made is the
+  one that wins.
+- `.ready` is no longer published before the new context is in effect when config state arrives
+  on the heels of the connection opening.
+- In `.polling` mode, an `updateContext(_:)` after an unrecoverable error now logs that error
+  again instead of claiming the client will keep retrying, and the network is left alone when
+  `pauseNetwork()` or `close()` is called while a connection attempt is in flight.
+- The `Last-Event-ID` header is omitted after the server resets the event id to empty, as the
+  server-sent events specification requires.
+- A rejected response's body is cut to 200 characters in the error message.
 - Telemetry no longer attributes an evaluation to the context it was not made against. Reading a
   config immediately after `updateContext(_:)` returned could be reported in the batch belonging to
   the previous context, because the collector was told about the new context in a detached task
