@@ -273,19 +273,19 @@ public final class ConfigDirectorClient: Sendable {
     }
 
     private func connectNow(context: ConfigDirectorContext?, reason: ConnectReason) async {
-        store.beginConnect(reason: reason)
+        store.beginConnect(reason: reason, context: context)
         let startedAt = ProcessInfo.processInfo.systemUptime
 
         do {
             try await transport.connect(context: context ?? ConfigDirectorContext(), timeout: timeout)
         } catch {
+            store.abandonConnect()
             logger.error("An error occurred during \(reason)", error: error)
             return
         }
 
         connectionState.withLock { $0.hasConnected = true }
-        telemetry.updateContext(context)
-        store.setContext(context)
+        store.applyPendingContext()
 
         let remaining = timeout - (ProcessInfo.processInfo.systemUptime - startedAt)
         if remaining > 0 {

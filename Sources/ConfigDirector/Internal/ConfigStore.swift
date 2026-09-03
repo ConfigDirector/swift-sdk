@@ -20,6 +20,8 @@ final class ConfigStore: Sendable {
         var isReady = false
         var isClosed = false
         var pendingReason: ConnectReason = .initialization
+        var pendingContext: ConfigDirectorContext?
+        var hasPendingContext = false
         var readyWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
         var watchers: [String: [UUID: Watcher]] = [:]
     }
@@ -41,15 +43,35 @@ final class ConfigStore: Sendable {
         state.withLock { $0.context }
     }
 
-    func beginConnect(reason: ConnectReason) {
+    func beginConnect(reason: ConnectReason, context: ConfigDirectorContext?) {
         state.withLock {
             $0.isReady = false
             $0.pendingReason = reason
+            $0.pendingContext = context
+            $0.hasPendingContext = true
         }
     }
 
-    func setContext(_ context: ConfigDirectorContext?) {
-        state.withLock { $0.context = context }
+    func abandonConnect() {
+        state.withLock {
+            $0.pendingContext = nil
+            $0.hasPendingContext = false
+        }
+    }
+
+    /// A pending context takes effect when the transport connects with it or when the first config
+    /// state evaluated against it arrives, whichever happens first.
+    func applyPendingContext() {
+        let (didApply, context) = state.withLock { state -> (Bool, ConfigDirectorContext?) in
+            guard state.hasPendingContext else { return (false, nil) }
+            state.context = state.pendingContext
+            state.pendingContext = nil
+            state.hasPendingContext = false
+            return (true, state.context)
+        }
+        guard didApply else { return }
+
+        telemetry.updateContext(context)
         events.emit(.contextUpdated(context))
     }
 
@@ -245,6 +267,8 @@ final class ConfigStore: Sendable {
     }
 
     private func markReady() {
+        applyPendingContext()
+
         let (waiters, reason) = state.withLock { state -> (
             [CheckedContinuation<Void, Never>],
             ConnectReason?
