@@ -44,14 +44,27 @@ struct TransportOptionsTests {
         #expect(withoutTimestamp.givenContext.anonymous == true)
     }
 
-    @Test func backsOffExponentiallyUpToACapOfUnderTenMinutes() {
+    @Test(arguments: [
+        (1, 1.0 ... 2.0),
+        (2, 2.0 ... 4.0),
+        (9, 256.0 ... 512.0),
+        (10, 256.0 ... 512.0),
+        (100, 256.0 ... 512.0),
+    ])
+    func backsOffExponentiallyUpToACapOfUnderTenMinutes(attempt: Int, expected: ClosedRange<TimeInterval>) {
         let delay = TransportOptions.exponentialRetryDelay
 
-        #expect(delay(1) == 2)
-        #expect(delay(2) == 4)
-        #expect(delay(9) == 512)
-        #expect(delay(10) == 512)
-        #expect(delay(100) == 512)
+        for _ in 0 ..< 100 {
+            #expect(expected.contains(delay(attempt)))
+        }
+    }
+
+    @Test func spreadsReconnectsOutWithJitter() {
+        let delay = TransportOptions.exponentialRetryDelay
+
+        let samples = Set((0 ..< 100).map { _ in delay(5) })
+
+        #expect(samples.count > 1, "every client would reconnect at the same instant")
     }
 
     @Test(arguments: [(200, false), (399, false), (400, true), (499, true), (500, false)])

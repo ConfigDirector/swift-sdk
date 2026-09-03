@@ -218,7 +218,30 @@ struct EventSourceClientTests {
         #expect(request?.headers["Accept"] == "text/event-stream")
     }
 
-    @Test func startsTheAttemptCountOverOnceAConnectionOpens() async {
+    @Test func keepsBackingOffWhenTheServerOpensButDeliversNothing() async {
+        let attempts = Locked<[Int]>([])
+        let fixture = makeFixture { configuration in
+            configuration.shouldReconnect = { state in
+                attempts.withLock { $0.append(state.attempt) }
+                return true
+            }
+        }
+        let client = fixture.client
+        fixture.enqueue(
+            .init(chunks: []),
+            .init(chunks: []),
+            .init(chunks: []),
+            .init(chunks: ["data: one\n\n"], endsStream: false)
+        )
+        defer { client.close() }
+
+        let reader = StreamReader(client.start())
+        _ = await collect(reader, messages: 1)
+
+        #expect(attempts.withLock { $0 } == [1, 2, 3])
+    }
+
+    @Test func startsTheAttemptCountOverOnceAConnectionDeliversAnEvent() async {
         let attempts = Locked<[Int]>([])
         let fixture = makeFixture { configuration in
             configuration.shouldReconnect = { state in

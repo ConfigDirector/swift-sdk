@@ -16,8 +16,11 @@ struct TransportOptions: Sendable {
     /// 2^9 seconds is a little over 8 minutes, which caps the backoff to under 10.
     private static let maxExponentialDelay = 9
 
+    /// Half of each delay is fixed and the other half is random, so that every client that lost the
+    /// same server does not come back at the same instant.
     static let exponentialRetryDelay: @Sendable (Int) -> TimeInterval = { attempt in
-        pow(2, TimeInterval(min(attempt, maxExponentialDelay)))
+        let ceiling = pow(2, TimeInterval(min(attempt, maxExponentialDelay)))
+        return ceiling / 2 + TimeInterval.random(in: 0 ... ceiling / 2)
     }
 
     func endpoint(_ path: String) -> URL {

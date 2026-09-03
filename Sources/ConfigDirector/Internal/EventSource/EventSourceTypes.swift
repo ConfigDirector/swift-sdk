@@ -15,7 +15,7 @@ enum EventSourceReadyState: Sendable, Equatable {
 /// What the connection looked like when it dropped, which decides whether and when to reconnect.
 struct EventSourceReconnectionState: Sendable {
     /// 1 for the first attempt after a connection drops, growing while attempts keep failing, and
-    /// reset once a connection opens.
+    /// reset once a connection delivers an event.
     var attempt: Int
 
     /// The delay the server last asked for through a `retry:` field.

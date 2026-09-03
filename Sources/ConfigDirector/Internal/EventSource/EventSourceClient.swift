@@ -92,9 +92,9 @@ final class EventSourceClient: Sendable {
         while !Task.isCancelled {
             let outcome = await connectOnce(continuation)
 
-            guard case let .ended(statusCode, error, didOpen) = outcome else { break }
+            guard case let .ended(statusCode, error, didDeliver) = outcome else { break }
 
-            if didOpen {
+            if didDeliver {
                 attempt = 0
             }
             attempt += 1
@@ -134,7 +134,7 @@ final class EventSourceClient: Sendable {
     private enum ConnectionOutcome {
         /// The server returned 204, which means it does not want the client to come back.
         case noContent
-        case ended(statusCode: Int?, error: (any Error)?, didOpen: Bool)
+        case ended(statusCode: Int?, error: (any Error)?, didDeliver: Bool)
     }
 
     private func connectOnce(_ continuation: AsyncStream<Event>.Continuation) async -> ConnectionOutcome {
@@ -145,11 +145,11 @@ final class EventSourceClient: Sendable {
         do {
             (bytes, response) = try await session.bytes(for: makeRequest())
         } catch {
-            return .ended(statusCode: nil, error: error, didOpen: false)
+            return .ended(statusCode: nil, error: error, didDeliver: false)
         }
 
         guard let response = response as? HTTPURLResponse else {
-            return .ended(statusCode: nil, error: EventSourceError.invalidResponse, didOpen: false)
+            return .ended(statusCode: nil, error: EventSourceError.invalidResponse, didDeliver: false)
         }
 
         if response.statusCode == 204 {
@@ -160,7 +160,7 @@ final class EventSourceClient: Sendable {
             return .ended(
                 statusCode: response.statusCode,
                 error: EventSourceError.serverError(statusCode: response.statusCode),
-                didOpen: false
+                didDeliver: false
             )
         }
 
@@ -168,21 +168,23 @@ final class EventSourceClient: Sendable {
         continuation.yield(.open)
 
         var parser = EventSourceParser()
+        var didDeliver = false
         do {
             for try await byte in bytes {
                 guard let output = parser.consume(byte) else { continue }
                 deliver(output, to: continuation)
+                didDeliver = true
             }
         } catch {
             parser.finish()
-            return .ended(statusCode: response.statusCode, error: error, didOpen: true)
+            return .ended(statusCode: response.statusCode, error: error, didDeliver: didDeliver)
         }
 
         parser.finish()
         return .ended(
             statusCode: response.statusCode,
             error: EventSourceError.streamClosed,
-            didOpen: true
+            didDeliver: didDeliver
         )
     }
 
