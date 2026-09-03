@@ -166,6 +166,43 @@ struct PollingTransportTests {
         #expect(fixture.received.isEmpty)
     }
 
+    @Test func overlappingConnectsLeaveASinglePollingLoop() async throws {
+        let (fixture, transport) = makeTransport(pollingInterval: 0.05)
+        defer { transport.close() }
+        StubURLProtocol.enqueue(
+            Array(repeating: .json(configSetJSON(greeting: "hello")), count: 40),
+            for: fixture.endpoint
+        )
+
+        async let first: Void = transport.connect(context: ConfigDirectorContext(id: "a"), timeout: 1)
+        async let second: Void = transport.connect(context: ConfigDirectorContext(id: "b"), timeout: 1)
+        _ = try await (first, second)
+
+        transport.disconnect()
+        await settle(0.05)
+        let requestsWhenDisconnected = fixture.recorded.count
+        await settle(0.3)
+        #expect(fixture.recorded.count == requestsWhenDisconnected, "a polling loop survived disconnect")
+    }
+
+    @Test func disconnectingDuringConnectPreventsPolling() async throws {
+        let (fixture, transport) = makeTransport(pollingInterval: 0.05)
+        defer { transport.close() }
+        fixture.enqueue(.init(chunks: [], endsStream: false))
+        StubURLProtocol.enqueue(
+            Array(repeating: .json(configSetJSON(greeting: "hello")), count: 40),
+            for: fixture.endpoint
+        )
+
+        let connecting = Task { try await transport.connect(context: ConfigDirectorContext(), timeout: 0.2) }
+        #expect(await fixture.waitForRequests(1))
+        transport.disconnect()
+        try await connecting.value
+
+        await settle(0.3)
+        #expect(fixture.recorded.count == 1, "polling started after the transport was disconnected")
+    }
+
     @Test func disconnectingStopsPolling() async throws {
         let (fixture, transport) = makeTransport(pollingInterval: 0.05)
         defer { transport.close() }

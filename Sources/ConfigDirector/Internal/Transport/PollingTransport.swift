@@ -3,6 +3,7 @@ import Foundation
 final class PollingTransport: Transport {
     private struct State {
         var polling: Task<Void, Never>?
+        var connectionGeneration = 0
         var lastUpdateTimestamp: String?
         var hasFatalError = false
         var isClosed = false
@@ -51,7 +52,8 @@ final class PollingTransport: Transport {
         }
 
         disconnect()
-        defer { schedulePolling(context: context, timeout: timeout) }
+        let generation = state.withLock { $0.connectionGeneration }
+        defer { schedulePolling(context: context, timeout: timeout, generation: generation) }
 
         do {
             try await fetch(context: context, timeout: timeout)
@@ -64,7 +66,13 @@ final class PollingTransport: Transport {
     }
 
     func disconnect() {
-        state.exchange(\.polling, with: nil)?.cancel()
+        let polling = state.withLock { state -> Task<Void, Never>? in
+            state.connectionGeneration += 1
+            let running = state.polling
+            state.polling = nil
+            return running
+        }
+        polling?.cancel()
     }
 
     func close() {
@@ -77,7 +85,7 @@ final class PollingTransport: Transport {
         return !state.withLock { $0.hasFatalError }
     }
 
-    private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval) {
+    private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval, generation: Int) {
         guard let pollingInterval, willRetryOnInterval else { return }
 
         let polling = Task { [weak self] in
@@ -92,7 +100,14 @@ final class PollingTransport: Transport {
                 }
             }
         }
-        state.withLock { $0.polling = polling }
+        let isCurrent = state.withLock { state -> Bool in
+            guard state.connectionGeneration == generation else { return false }
+            state.polling = polling
+            return true
+        }
+        if !isCurrent {
+            polling.cancel()
+        }
     }
 
     private func fetch(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
