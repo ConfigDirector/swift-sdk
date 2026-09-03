@@ -101,7 +101,7 @@ struct PollingTransportTests {
         #expect(fixture.recorded.count == 1, "a rejected request must not be retried")
     }
 
-    @Test func ignoresLaterConnectAttemptsAfterAnUnrecoverableFailure() async throws {
+    @Test func rejectsLaterConnectAttemptsAfterAnUnrecoverableFailure() async throws {
         let (fixture, transport) = makeTransport()
         defer { transport.close() }
         fixture.enqueue(.json("", statusCode: 403), .json(configSetJSON(greeting: "hello")))
@@ -109,8 +109,16 @@ struct PollingTransportTests {
         _ = await #expect(throws: ConfigDirectorError.self) {
             try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
         }
-        try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+        let error = await #expect(throws: ConfigDirectorError.self) {
+            try await transport.connect(context: ConfigDirectorContext(), timeout: 1)
+        }
 
+        guard case let .connectionFailed(message, statusCode) = try #require(error) else {
+            Issue.record("expected a connection failure, got \(String(describing: error))")
+            return
+        }
+        #expect(statusCode == 403)
+        #expect(message.contains("unrecoverable"))
         #expect(fixture.recorded.count == 1)
         #expect(fixture.received.isEmpty)
     }

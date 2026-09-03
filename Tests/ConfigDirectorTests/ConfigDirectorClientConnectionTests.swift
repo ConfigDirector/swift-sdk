@@ -204,6 +204,25 @@ struct ConfigDirectorClientConnectionTests {
         #expect(fixture.streamDisconnections == 1)
     }
 
+    @Test func pollingModeReportsEveryUpdateAsFailedAfterAnUnrecoverableError() async throws {
+        let fixture = ClientFixture()
+        let logger = RecordingLogger()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .polling, logger: logger)
+        defer { client.close() }
+        await client.initialize(context: ConfigDirectorContext(id: "before"))
+
+        StubURLProtocol.enqueue([.json("invalid client sdk key", statusCode: 401)], for: fixture.pollURL)
+        fixture.servePolling(servedConfigSet)
+        await client.updateContext(ConfigDirectorContext(id: "rejected"))
+        await client.updateContext(ConfigDirectorContext(id: "after"))
+
+        #expect(client.context?.id == "before")
+        #expect(logger.recorded.filter { $0.contains("An error occurred during context update") }.count == 2)
+        #expect(logger.recorded.contains { $0.contains("keep retrying") } == false)
+        #expect(fixture.pollRequests.count == 2)
+    }
+
     @Test func keepsTheBaseURLPathWhenItHasNoTrailingSlash() async throws {
         let fixture = ClientFixture(basePath: "/proxy")
         fixture.serveStream(servedConfigSet)

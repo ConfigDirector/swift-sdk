@@ -5,7 +5,7 @@ final class PollingTransport: Transport {
         var polling: Task<Void, Never>?
         var connectionGeneration = 0
         var lastUpdateTimestamp: String?
-        var hasFatalError = false
+        var fatalError: ConfigDirectorError?
         var isClosed = false
     }
 
@@ -42,13 +42,13 @@ final class PollingTransport: Transport {
     }
 
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
-        let (isClosed, hasFatalError) = state.withLock { ($0.isClosed, $0.hasFatalError) }
+        let (isClosed, fatalError) = state.withLock { ($0.isClosed, $0.fatalError) }
         guard !isClosed else { return }
-        guard !hasFatalError else {
+        if let fatalError {
             options.logger.warn("""
             [PollingTransport] There was a prior unrecoverable error. Ignoring attempt to reconnect.
             """)
-            return
+            throw fatalError
         }
 
         disconnect()
@@ -82,7 +82,7 @@ final class PollingTransport: Transport {
 
     private var willRetryOnInterval: Bool {
         guard let pollingInterval, pollingInterval > 0 else { return false }
-        return !state.withLock { $0.hasFatalError }
+        return state.withLock { $0.fatalError == nil }
     }
 
     private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval, generation: Int) {
@@ -159,17 +159,18 @@ final class PollingTransport: Transport {
             )
         }
 
-        state.withLock { $0.hasFatalError = true }
         disconnect()
 
         let text = String(decoding: body, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        throw ConfigDirectorError.connectionFailed(
+        let error = ConfigDirectorError.connectionFailed(
             message: """
             Connection failed with status: \(status)\(text.isEmpty ? "" : " (\(text))"). This is an \
             unrecoverable error, retry attempts will be ignored.
             """,
             statusCode: status
         )
+        state.withLock { $0.fatalError = error }
+        throw error
     }
 
     private func dispatch(_ data: Data) throws {
