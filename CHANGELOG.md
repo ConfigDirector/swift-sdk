@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-02
+
 ### Changed
 
 - A `baseURL` whose path has no trailing slash, such as `https://proxy.example.com/configdirector`,
