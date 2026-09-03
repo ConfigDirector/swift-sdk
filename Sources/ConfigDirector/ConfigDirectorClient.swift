@@ -274,7 +274,7 @@ public final class ConfigDirectorClient: Sendable {
 
     private func connectNow(context: ConfigDirectorContext?, reason: ConnectReason) async {
         store.beginConnect(reason: reason)
-        let startedAt = Date()
+        let startedAt = ProcessInfo.processInfo.systemUptime
 
         do {
             try await transport.connect(context: context ?? ConfigDirectorContext(), timeout: timeout)
@@ -287,7 +287,7 @@ public final class ConfigDirectorClient: Sendable {
         telemetry.updateContext(context)
         store.setContext(context)
 
-        let remaining = timeout - Date().timeIntervalSince(startedAt)
+        let remaining = timeout - (ProcessInfo.processInfo.systemUptime - startedAt)
         if remaining > 0 {
             await store.waitUntilReady(timeout: remaining)
         }
