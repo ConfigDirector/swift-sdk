@@ -66,6 +66,26 @@ struct ConfigStoreTests {
         #expect(await events.next(timeout: 0.1) == nil)
     }
 
+    @Test func stopsWaitingForReadyWhenTheCallerIsCancelled() async {
+        let waiting = Task { [store] in
+            await store.waitUntilReady(timeout: 5)
+        }
+        await settle(0.05)
+
+        waiting.cancel()
+
+        #expect(await withTimeout { await waiting.value } != nil, "a cancelled caller kept waiting")
+    }
+
+    @Test func returnsAtOnceWhenTheCallerWasCancelledBeforeWaitingForReady() async {
+        let waiting = Task { [store] in
+            withUnsafeCurrentTask { $0?.cancel() }
+            await store.waitUntilReady(timeout: 5)
+        }
+
+        #expect(await withTimeout { await waiting.value } != nil, "a cancelled caller kept waiting")
+    }
+
     @Test func abandoningAConnectKeepsThePreviousContext() {
         let previous = ConfigDirectorContext(id: "previous")
         store.beginConnect(reason: .initialization, context: previous)

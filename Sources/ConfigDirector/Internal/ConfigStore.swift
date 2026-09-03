@@ -88,16 +88,20 @@ final class ConfigStore: Sendable {
         }
         defer { timeoutTask.cancel() }
 
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            let isSettled = state.withLock { state -> Bool in
-                guard !state.isReady, !state.isClosed else { return true }
-                state.readyWaiters[id] = continuation
-                return false
-            }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let isSettled = state.withLock { state -> Bool in
+                    guard !state.isReady, !state.isClosed, !Task.isCancelled else { return true }
+                    state.readyWaiters[id] = continuation
+                    return false
+                }
 
-            if isSettled {
-                continuation.resume()
+                if isSettled {
+                    continuation.resume()
+                }
             }
+        } onCancel: {
+            resumeReadyWaiter(id)
         }
     }
 

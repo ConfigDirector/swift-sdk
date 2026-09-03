@@ -44,6 +44,18 @@ struct ConnectionGateTests {
         #expect(Date().timeIntervalSince(startedAt) < 1)
     }
 
+    @Test func throwsAtOnceWhenTheCallerWasCancelledBeforeWaiting() async {
+        let gate = ConnectionGate()
+        let waiting = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            try await gate.wait(timeout: 5)
+        }
+
+        let result = await withTimeout { await waiting.result }
+
+        #expect(throws: CancellationError.self) { try result?.get() }
+    }
+
     @Test func releasesTheCallerWhenTheWaitIsCancelled() async {
         let gate = ConnectionGate()
         let waiting = Task { try await gate.wait(timeout: 60) }

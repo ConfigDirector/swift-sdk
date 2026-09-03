@@ -38,11 +38,14 @@ final class ConnectionGate: Sendable {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 let settled = state.withLock { state -> Result<Void, any Error>? in
-                    guard let settled = state.settled else {
-                        state.continuation = continuation
-                        return nil
+                    if let settled = state.settled {
+                        return settled
                     }
-                    return settled
+                    if Task.isCancelled {
+                        return .failure(CancellationError())
+                    }
+                    state.continuation = continuation
+                    return nil
                 }
 
                 if let settled {
