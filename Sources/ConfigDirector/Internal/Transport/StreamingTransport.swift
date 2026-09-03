@@ -1,7 +1,5 @@
 import Foundation
 
-/// A ``Transport`` that keeps a server-sent events connection open, receiving config state as soon
-/// as it changes on the server.
 final class StreamingTransport: Transport {
     private struct State {
         var eventSource: EventSourceClient?
@@ -45,7 +43,6 @@ final class StreamingTransport: Transport {
 
         let eventSource = EventSourceClient(configuration: configuration, session: options.session)
         let events = eventSource.start()
-        // The task ends itself: closing the event source finishes the stream it is reading.
         Task { [weak self] in
             for await event in events {
                 self?.handle(event, connected)
@@ -98,7 +95,8 @@ final class StreamingTransport: Transport {
 
     private func dispatch(_ data: String) {
         do {
-            try onConfigSet(JSONDecoder().decode(ConfigSet.self, from: Data(data.utf8)))
+            let configSet = try JSONDecoder().decode(ConfigSet.self, from: Data(data.utf8))
+            onConfigSet(configSet)
         } catch {
             options.logger.error(
                 "[StreamingTransport] Error parsing and dispatching the config state update",
