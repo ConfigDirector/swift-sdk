@@ -2,7 +2,6 @@ import Foundation
 
 typealias ConfigSetHandler = @Sendable (ConfigSet) -> Void
 
-/// Everything a ``Transport`` needs to reach the ConfigDirector server.
 struct TransportOptions: Sendable {
     var clientSDKKey: String
     var baseURL: URL
@@ -12,7 +11,6 @@ struct TransportOptions: Sendable {
     var pollingInterval: TimeInterval
     var session: URLSession = .shared
 
-    /// How long to wait before the reconnection attempt numbered `attempt`, counting from 1.
     var retryDelay: @Sendable (Int) -> TimeInterval = TransportOptions.exponentialRetryDelay
 
     /// 2^9 seconds is a little over 8 minutes, which caps the backoff to under 10.
@@ -23,7 +21,7 @@ struct TransportOptions: Sendable {
     }
 
     func endpoint(_ path: String) -> URL {
-        URL(string: path, relativeTo: baseURL)?.absoluteURL ?? baseURL
+        baseURL.appendingPathComponent(path)
     }
 
     func payload(

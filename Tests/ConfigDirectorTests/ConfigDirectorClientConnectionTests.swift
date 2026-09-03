@@ -204,6 +204,20 @@ struct ConfigDirectorClientConnectionTests {
         #expect(fixture.streamDisconnections == 1)
     }
 
+    @Test func keepsTheBaseURLPathWhenItHasNoTrailingSlash() async throws {
+        let fixture = ClientFixture(basePath: "/proxy")
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient(telemetryFlushInterval: 0.01)
+        defer { client.close() }
+
+        await client.initialize()
+        _ = client.value(for: "dark-mode", default: false)
+
+        #expect(client.isReady)
+        #expect(fixture.streamRequests.count == 1)
+        #expect(await waitUntil { fixture.telemetryRequests.count == 1 })
+    }
+
     @Test func streamingModeAcceptsAnInfiniteTimeout() async throws {
         let fixture = ClientFixture()
         fixture.serveStream(servedConfigSet)

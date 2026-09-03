@@ -18,6 +18,7 @@ struct TransportOptionsTests {
         ("https://example.test", "https://example.test/client/sse/v1"),
         ("https://example.test/", "https://example.test/client/sse/v1"),
         ("https://example.test/proxy/", "https://example.test/proxy/client/sse/v1"),
+        ("https://example.test/proxy", "https://example.test/proxy/client/sse/v1"),
     ])
     func resolvesEndpointsAgainstTheBaseURL(baseURL: String, expected: String) {
         #expect(makeOptions(baseURL: baseURL).endpoint("client/sse/v1").absoluteString == expected)

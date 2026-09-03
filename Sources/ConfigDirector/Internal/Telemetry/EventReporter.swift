@@ -50,7 +50,7 @@ final class HTTPEventReporter: EventReporter {
         timeout: TimeInterval = 5
     ) {
         self.clientSDKKey = clientSDKKey
-        url = URL(string: "client/telemetry/v1", relativeTo: baseURL)?.absoluteURL ?? baseURL
+        url = baseURL.appendingPathComponent("client/telemetry/v1")
         self.metaContext = metaContext
         self.logger = logger
         self.session = session

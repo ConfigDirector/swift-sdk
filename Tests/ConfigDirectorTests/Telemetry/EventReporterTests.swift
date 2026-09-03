@@ -31,6 +31,22 @@ struct EventReporterTests {
         )
     }
 
+    @Test func keepsTheBaseURLPathWhenItHasNoTrailingSlash() async throws {
+        let root = "https://example.test/\(UUID().uuidString)/proxy"
+        let url = try #require(URL(string: root + "/client/telemetry/v1"))
+        StubURLProtocol.enqueue([.json("{}", statusCode: 202)], for: url)
+        let reporter = try HTTPEventReporter(
+            clientSDKKey: "sdk-key",
+            baseURL: #require(URL(string: root)),
+            metaContext: TelemetryMetaContext(sdkName: "swift-client-sdk", sdkVersion: "0.1.0"),
+            logger: ConsoleLogger(level: .off),
+            session: StubURLProtocol.makeSession()
+        )
+
+        #expect(await reporter.report(makeReport()) == .succeeded)
+        #expect(StubURLProtocol.recorded(for: url).count == 1)
+    }
+
     private func makeReport(events: Int = 1, droppedCount: Int = 0) -> EventReport {
         let event = EvaluatedConfigEvent(
             contextID: "user-1",

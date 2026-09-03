@@ -12,11 +12,14 @@ final class ClientFixture: Sendable {
     private let session = StubURLProtocol.makeSession()
     private let notifications = NotificationCenter()
 
-    init(telemetryStatus: Int? = 202) {
-        baseURL = URL(string: "https://example.test/\(UUID().uuidString)/")!
-        streamURL = URL(string: "client/sse/v1", relativeTo: baseURL)!.absoluteURL
-        pollURL = URL(string: "client/polling/v1", relativeTo: baseURL)!.absoluteURL
-        telemetryURL = URL(string: "client/telemetry/v1", relativeTo: baseURL)!.absoluteURL
+    /// `basePath` is appended to the base URL without a trailing slash, the way an application
+    /// routing through a proxy is likely to write it.
+    init(telemetryStatus: Int? = 202, basePath: String? = nil) {
+        let root = "https://example.test/\(UUID().uuidString)" + (basePath ?? "")
+        baseURL = URL(string: basePath == nil ? root + "/" : root)!
+        streamURL = URL(string: root + "/client/sse/v1")!
+        pollURL = URL(string: root + "/client/polling/v1")!
+        telemetryURL = URL(string: root + "/client/telemetry/v1")!
 
         // Telemetry goes out on its own schedule in every test, so the endpoint always answers.
         // A nil status leaves it unresponsive, which is how a test proves nothing waits on it.
