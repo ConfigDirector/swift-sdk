@@ -51,8 +51,7 @@ final class PollingTransport: Transport {
             throw fatalError
         }
 
-        disconnect()
-        let generation = state.withLock { $0.connectionGeneration }
+        let generation = endCurrentConnection()
         defer { schedulePolling(context: context, timeout: timeout, generation: generation) }
 
         do {
@@ -66,18 +65,24 @@ final class PollingTransport: Transport {
     }
 
     func disconnect() {
-        let polling = state.withLock { state -> Task<Void, Never>? in
-            state.connectionGeneration += 1
-            let running = state.polling
-            state.polling = nil
-            return running
-        }
-        polling?.cancel()
+        endCurrentConnection()
     }
 
     func close() {
         state.withLock { $0.isClosed = true }
         disconnect()
+    }
+
+    @discardableResult
+    private func endCurrentConnection() -> Int {
+        let (polling, generation) = state.withLock { state -> (Task<Void, Never>?, Int) in
+            state.connectionGeneration += 1
+            let running = state.polling
+            state.polling = nil
+            return (running, state.connectionGeneration)
+        }
+        polling?.cancel()
+        return generation
     }
 
     private var willRetryOnInterval: Bool {
@@ -99,14 +104,13 @@ final class PollingTransport: Transport {
                 }
             }
         }
-        let isCurrent = state.withLock { state -> Bool in
-            guard state.connectionGeneration == generation else { return false }
+        let superseded = state.withLock { state -> Task<Void, Never>? in
+            guard state.connectionGeneration == generation else { return polling }
+            let previous = state.polling
             state.polling = polling
-            return true
+            return previous
         }
-        if !isCurrent {
-            polling.cancel()
-        }
+        superseded?.cancel()
     }
 
     private func fetch(context: ConfigDirectorContext, timeout: TimeInterval) async throws {

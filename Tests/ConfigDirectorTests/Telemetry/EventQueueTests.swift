@@ -80,4 +80,34 @@ struct EventQueueTests {
     @Test func aggregatingNothingProducesNothing() {
         #expect(EventQueue<String>().takeSnapshot().aggregated().isEmpty)
     }
+
+    @Test func keepsTheOldestFirstAfterWrappingAroundMoreThanOnce() {
+        let queue = EventQueue<Int>(limit: 3)
+
+        for event in 1 ... 8 {
+            queue.push(event)
+        }
+        queue.push(9)
+        let snapshot = queue.takeSnapshot()
+
+        #expect(snapshot.events == [7, 8, 9])
+        #expect(snapshot.droppedCount == 6)
+    }
+
+    @Test func pushingOntoAFullQueueDoesNotShiftEveryEvent() {
+        let limit = 100_000
+        let queue = EventQueue<Int>(limit: limit)
+        for event in 0 ..< limit {
+            queue.push(event)
+        }
+
+        let started = Date()
+        for event in 0 ..< 20000 {
+            queue.push(event)
+        }
+        let elapsed = Date().timeIntervalSince(started)
+
+        #expect(elapsed < 0.1)
+        #expect(queue.takeSnapshot().droppedCount == 20000)
+    }
 }

@@ -1,16 +1,9 @@
 import Foundation
 
-/// Everything an ``EventQueue`` had collected when a report was prepared.
 struct EventQueueSnapshot<Event: Sendable>: Sendable {
-    /// When the first of the ``events`` was collected.
     var startTime: Date
-
-    /// When the snapshot was taken.
     var endTime: Date
-
     var events: [Event]
-
-    /// How many events were dropped because the queue was full.
     var droppedCount: Int
 
     var isEmpty: Bool {
@@ -19,8 +12,6 @@ struct EventQueueSnapshot<Event: Sendable>: Sendable {
 }
 
 extension EventQueueSnapshot where Event: Hashable {
-    /// Collapses identical events into one entry each, carrying how many times the event occurred
-    /// over the window this snapshot covers.
     func aggregated() -> [AggregatedEvent<Event>] {
         var counts: [Event: Int] = [:]
         for event in events {
@@ -33,18 +24,22 @@ extension EventQueueSnapshot where Event: Hashable {
     }
 }
 
-/// Holds collected events until they are reported.
+/// Holds collected events until they are reported, dropping the oldest once full.
 ///
-/// The queue is bounded: once it is full the oldest events are dropped to make room for new ones,
-/// and the number dropped is reported alongside the events that were kept.
+/// Once full, the buffer is written in a ring so that a push overwrites the oldest event in place
+/// rather than shifting every event down by one, which keeps the client's hot path cheap.
 final class EventQueue<Event: Sendable>: Sendable {
     private struct State {
         var events: [Event] = []
+        var oldestIndex = 0
         var startTime: Date?
         var droppedCount = 0
+
+        var orderedEvents: [Event] {
+            Array(events[oldestIndex...]) + events[..<oldestIndex]
+        }
     }
 
-    /// The most events the queue holds before it starts dropping the oldest.
     private let limit: Int
     private let state = Locked(State())
 
@@ -57,7 +52,7 @@ final class EventQueue<Event: Sendable>: Sendable {
     }
 
     var events: [Event] {
-        state.withLock { $0.events }
+        state.withLock { $0.orderedEvents }
     }
 
     func push(_ event: Event) {
@@ -66,17 +61,16 @@ final class EventQueue<Event: Sendable>: Sendable {
                 state.startTime = Date()
             }
 
-            if state.events.count >= limit {
-                let dropCount = state.events.count - limit + 1
-                state.events.removeFirst(dropCount)
-                state.droppedCount += dropCount
+            if state.events.count < limit {
+                state.events.append(event)
+            } else {
+                state.events[state.oldestIndex] = event
+                state.oldestIndex = (state.oldestIndex + 1) % limit
+                state.droppedCount += 1
             }
-            state.events.append(event)
         }
     }
 
-    /// Removes every event from the queue and returns it, leaving the queue ready to collect the
-    /// next batch.
     func takeSnapshot() -> EventQueueSnapshot<Event> {
         let endTime = Date()
 
@@ -85,7 +79,7 @@ final class EventQueue<Event: Sendable>: Sendable {
         return EventQueueSnapshot(
             startTime: collected.startTime ?? endTime,
             endTime: endTime,
-            events: collected.events,
+            events: collected.orderedEvents,
             droppedCount: collected.droppedCount
         )
     }
