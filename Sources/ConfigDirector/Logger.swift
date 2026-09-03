@@ -63,6 +63,9 @@ public extension ConfigDirectorLogger {
 
 /// The default logger, which writes to the unified logging system under the
 /// `com.configdirector.sdk` subsystem.
+///
+/// Debug messages carry per-evaluation detail, config values included, so they are written as
+/// private and redacted outside a debugging session. Warnings and errors are written as public.
 public struct ConsoleLogger: ConfigDirectorLogger {
     public let level: ConfigDirectorLogLevel
 
@@ -74,7 +77,11 @@ public struct ConsoleLogger: ConfigDirectorLogger {
 
     public func log(_ level: ConfigDirectorLogLevel, message: String, error: (any Error)?) {
         let text = error.map { "\(message): \($0.localizedDescription)" } ?? message
-        logger.log(level: level.osLogType, "\(text, privacy: .public)")
+        if level == .debug {
+            logger.debug("\(text, privacy: .private)")
+        } else {
+            logger.log(level: level.osLogType, "\(text, privacy: .public)")
+        }
     }
 }
 
