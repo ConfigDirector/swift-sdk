@@ -204,6 +204,30 @@ struct ConfigDirectorClientConnectionTests {
         #expect(fixture.streamDisconnections == 1)
     }
 
+    @Test func streamingModeAcceptsAnInfiniteTimeout() async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        let client = try fixture.makeClient(timeout: .infinity)
+        defer { client.close() }
+
+        await client.initialize()
+
+        #expect(client.isReady)
+    }
+
+    @Test func pollingModeAcceptsAnInfiniteTimeoutAndInterval() async throws {
+        let fixture = ClientFixture()
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: .polling, timeout: .infinity, pollingInterval: .infinity)
+        defer { client.close() }
+
+        await client.initialize()
+        await settle()
+
+        #expect(client.isReady)
+        #expect(fixture.pollRequests.count == 1)
+    }
+
     @Test func pollingModeFetchesFromThePollingEndpoint() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet)

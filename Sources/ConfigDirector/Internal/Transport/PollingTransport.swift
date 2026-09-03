@@ -90,8 +90,7 @@ final class PollingTransport: Transport {
 
         let polling = Task { [weak self] in
             while !Task.isCancelled {
-                guard await (try? Task.sleep(nanoseconds: UInt64(pollingInterval * 1_000_000_000))) != nil,
-                      let self else { return }
+                guard await (try? Task.sleep(seconds: pollingInterval)) != nil, let self else { return }
 
                 do {
                     try await fetch(context: context, timeout: timeout)

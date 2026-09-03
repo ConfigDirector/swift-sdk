@@ -60,9 +60,7 @@ final class ConfigStore: Sendable {
     func waitUntilReady(timeout: TimeInterval) async {
         let id = UUID()
         let timeoutTask = Task { [weak self] in
-            let slept: Void? = try? await Task.sleep(
-                nanoseconds: UInt64(max(0, timeout) * 1_000_000_000)
-            )
+            let slept: Void? = try? await Task.sleep(seconds: timeout)
             guard slept != nil else { return }
             self?.resumeReadyWaiter(id)
         }

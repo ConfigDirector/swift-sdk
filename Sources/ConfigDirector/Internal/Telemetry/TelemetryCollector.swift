@@ -1,6 +1,5 @@
 import Foundation
 
-/// How the collector is tuned. Not part of the public API: the defaults are what applications get.
 struct TelemetryOptions: Sendable {
     var flushInterval: TimeInterval = 30
     var initialFlushDelay: TimeInterval = 5
@@ -58,7 +57,6 @@ final class TelemetryEventCollector: TelemetryClient {
         startTimer(after: options.initialFlushDelay)
     }
 
-    /// What has been collected but not yet reported.
     var pendingEventCount: Int {
         queue.events.count
     }
@@ -149,7 +147,7 @@ final class TelemetryEventCollector: TelemetryClient {
         let timer = Task { [weak self] in
             var next = delay
             while !Task.isCancelled {
-                let slept: Void? = try? await Task.sleep(nanoseconds: UInt64(max(0, next) * 1_000_000_000))
+                let slept: Void? = try? await Task.sleep(seconds: next)
                 guard slept != nil, let self else { return }
 
                 await enqueueReport(takeSnapshot())

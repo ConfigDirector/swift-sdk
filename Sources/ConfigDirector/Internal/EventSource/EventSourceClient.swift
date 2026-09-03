@@ -1,7 +1,5 @@
 import Foundation
 
-/// A server-sent events client: connects, publishes what the server sends, and reconnects when the
-/// connection drops for a reason the caller says is worth retrying.
 final class EventSourceClient: Sendable {
     struct Configuration: Sendable {
         var url: URL
@@ -37,7 +35,6 @@ final class EventSourceClient: Sendable {
         var isClosed = false
     }
 
-    /// The range the spec allows a reconnect delay to fall in.
     private static let allowedReconnectDelay: ClosedRange<TimeInterval> = 0.001 ... 3600
 
     private let configuration: Configuration
@@ -58,8 +55,6 @@ final class EventSourceClient: Sendable {
         state.withLock { $0.lastEventID }
     }
 
-    /// Starts connecting and publishes everything that follows. The stream finishes once the client
-    /// stops for good, whether from ``close()`` or because reconnecting was declined.
     func start() -> AsyncStream<Event> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let canStart = state.withLock { state in
@@ -80,7 +75,6 @@ final class EventSourceClient: Sendable {
         }
     }
 
-    /// Stops the client for good. It cannot be restarted.
     func close() {
         let task = state.withLock { state -> Task<Void, Never>? in
             state.isClosed = true
@@ -98,13 +92,8 @@ final class EventSourceClient: Sendable {
         while !Task.isCancelled {
             let outcome = await connectOnce(continuation)
 
-            guard case let .ended(statusCode, error, didOpen) = outcome else {
-                // 204 is the server saying not to reconnect.
-                break
-            }
+            guard case let .ended(statusCode, error, didOpen) = outcome else { break }
 
-            // A connection that opened starts the count over, so a long-lived stream dropping once
-            // does not inherit the backoff of whatever failed before it.
             if didOpen {
                 attempt = 0
             }
@@ -132,7 +121,7 @@ final class EventSourceClient: Sendable {
             }
 
             do {
-                try await Task.sleep(nanoseconds: Self.nanoseconds(delay))
+                try await Task.sleep(seconds: min(delay, Self.allowedReconnectDelay.upperBound))
             } catch {
                 break
             }
@@ -218,7 +207,6 @@ final class EventSourceClient: Sendable {
         var request = URLRequest(url: configuration.url, timeoutInterval: configuration.requestTimeout)
         request.httpMethod = configuration.method
         request.httpBody = configuration.body
-        // A cached response would replay an old stream instead of opening a new one.
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
 
@@ -231,13 +219,6 @@ final class EventSourceClient: Sendable {
         }
 
         return request
-    }
-
-    /// Converting a `TimeInterval` to nanoseconds traps on a negative value, and the delay can come
-    /// from a caller's closure, so it is clamped to the range the spec allows rather than trusted.
-    private static func nanoseconds(_ seconds: TimeInterval) -> UInt64 {
-        guard seconds > allowedReconnectDelay.lowerBound else { return 0 }
-        return UInt64(min(seconds, allowedReconnectDelay.upperBound) * 1_000_000_000)
     }
 
     private func setReadyState(_ readyState: EventSourceReadyState) {

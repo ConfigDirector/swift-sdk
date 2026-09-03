@@ -1,7 +1,5 @@
 import Foundation
 
-/// A one-shot signal a caller waits on while a connection either opens, fails in a way retrying
-/// cannot fix, or runs out of time.
 final class ConnectionGate: Sendable {
     private struct State {
         var settled: Result<Void, any Error>?
@@ -10,7 +8,6 @@ final class ConnectionGate: Sendable {
 
     private let state = Locked(State())
 
-    /// Settles the gate, returning false when it had already settled.
     @discardableResult
     func settle(_ result: Result<Void, any Error> = .success(())) -> Bool {
         let (didSettle, continuation) = state.withLock { state -> (
@@ -32,9 +29,7 @@ final class ConnectionGate: Sendable {
     /// that has not opened yet may still open later.
     func wait(timeout: TimeInterval) async throws {
         let timeoutTask = Task { [weak self] in
-            let slept: Void? = try? await Task.sleep(
-                nanoseconds: UInt64(max(0, timeout) * 1_000_000_000)
-            )
+            let slept: Void? = try? await Task.sleep(seconds: timeout)
             guard slept != nil else { return }
             self?.settle()
         }
