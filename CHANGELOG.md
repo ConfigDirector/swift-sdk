@@ -8,6 +8,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-02
+
 ### Fixed
 
 - A trait holding a non-finite `Double`, such as `.nan` or `.infinity`, is sent as `null` the way
