@@ -8,6 +8,14 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Fixed
+
+- A trait holding a non-finite `Double`, such as `.nan` or `.infinity`, is sent as `null` the way
+  the JavaScript SDK sends it. It used to make the request body impossible to encode, so
+  `initialize(context:)` and `updateContext(_:)` never reached the server: `.streaming` logged the
+  failure and kept the previous context, and `.polling` reported the new context as current while
+  logging a warning on every poll.
+
 ### Removed
 
 - The `.oneTime` connection mode. Streaming remains the default, and `.polling` covers clients that

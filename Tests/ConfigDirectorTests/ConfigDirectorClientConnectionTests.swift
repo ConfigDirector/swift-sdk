@@ -248,6 +248,24 @@ struct ConfigDirectorClientConnectionTests {
         #expect(client.isReady)
     }
 
+    @Test(arguments: [ConnectionMode.streaming, .polling])
+    func connectsWithANonFiniteTraitSentAsNull(mode: ConnectionMode) async throws {
+        let fixture = ClientFixture()
+        fixture.serveStream(servedConfigSet)
+        fixture.servePolling(servedConfigSet)
+        let client = try fixture.makeClient(mode: mode)
+        defer { client.close() }
+
+        let context = ConfigDirectorContext(id: "user-1", traits: ["score": .double(.nan)])
+        await client.initialize(context: context)
+
+        #expect(client.isReady)
+        #expect(client.context?.id == "user-1")
+        let request = try #require((fixture.streamRequests + fixture.pollRequests).first)
+        #expect(request.payload?.givenContext.id == "user-1")
+        #expect(request.body?.contains("\"score\":null") == true)
+    }
+
     @Test func pollingModeAcceptsAnInfiniteTimeoutAndInterval() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet)

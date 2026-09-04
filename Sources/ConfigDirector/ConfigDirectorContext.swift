@@ -55,6 +55,9 @@ public extension ConfigDirectorContext {
     enum TraitValue: Sendable, Equatable {
         case string(String)
         case int(Int)
+
+        /// A value that is not finite, such as `.nan` or `.infinity`, has no JSON form and is sent
+        /// as `null`.
         case double(Double)
         case bool(Bool)
         case array([TraitValue])
@@ -128,7 +131,8 @@ extension ConfigDirectorContext.TraitValue: Encodable {
         switch self {
         case let .string(value): try container.encode(value)
         case let .int(value): try container.encode(value)
-        case let .double(value): try container.encode(value)
+        case let .double(value) where value.isFinite: try container.encode(value)
+        case .double: try container.encodeNil()
         case let .bool(value): try container.encode(value)
         case let .array(values): try container.encode(values)
         case let .dictionary(values): try container.encode(values)
