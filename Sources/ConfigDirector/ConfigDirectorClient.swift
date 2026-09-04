@@ -340,8 +340,6 @@ public final class ConfigDirectorClient: Sendable {
             StreamingTransport(options: options, onConfigSet: onConfigSet)
         case .polling:
             PollingTransport(options: options, onConfigSet: onConfigSet)
-        case .oneTime:
-            PollingTransport.oneTime(options: options, onConfigSet: onConfigSet)
         }
     }
 

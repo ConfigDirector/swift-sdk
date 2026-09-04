@@ -8,9 +8,6 @@ public enum ConnectionMode: Sendable {
 
     /// Fetches config state during initialization and then on a fixed interval.
     case polling
-
-    /// Fetches config state during initialization and on context updates only.
-    case oneTime
 }
 
 /// How the client connects to the ConfigDirector server.
@@ -19,14 +16,13 @@ public struct ConnectionOptions: Sendable {
     public var mode: ConnectionMode
 
     /// How often to re-fetch config state when ``mode`` is ``ConnectionMode/polling``. It has no
-    /// effect in any other mode.
+    /// effect when streaming.
     public var pollingInterval: TimeInterval
 
     /// How long to wait for initialization and context updates.
     ///
-    /// When streaming, the operation may still succeed after it times out, as long as no
-    /// unrecoverable errors are encountered. In the other modes a timed-out operation is not
-    /// retried.
+    /// The operation may still succeed after it times out, as long as no unrecoverable errors are
+    /// encountered: streaming keeps reconnecting, and polling tries again on ``pollingInterval``.
     public var timeout: TimeInterval
 
     /// The base URL of the ConfigDirector SDK server. Set this only when routing through a proxy.

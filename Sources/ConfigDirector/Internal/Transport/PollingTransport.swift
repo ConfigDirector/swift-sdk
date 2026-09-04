@@ -11,34 +11,15 @@ final class PollingTransport: Transport {
 
     private let options: TransportOptions
     private let url: URL
-    private let pollingInterval: TimeInterval?
+    private let pollingInterval: TimeInterval
     private let onConfigSet: ConfigSetHandler
     private let state = Locked(State())
 
-    init(
-        options: TransportOptions,
-        pollingInterval: TimeInterval?,
-        onConfigSet: @escaping ConfigSetHandler
-    ) {
+    init(options: TransportOptions, onConfigSet: @escaping ConfigSetHandler) {
         self.options = options
-        self.pollingInterval = pollingInterval
+        pollingInterval = options.pollingInterval
         self.onConfigSet = onConfigSet
         url = options.endpoint("client/polling/v1")
-    }
-
-    convenience init(options: TransportOptions, onConfigSet: @escaping ConfigSetHandler) {
-        self.init(
-            options: options,
-            pollingInterval: options.pollingInterval,
-            onConfigSet: onConfigSet
-        )
-    }
-
-    static func oneTime(
-        options: TransportOptions,
-        onConfigSet: @escaping ConfigSetHandler
-    ) -> PollingTransport {
-        PollingTransport(options: options, pollingInterval: nil, onConfigSet: onConfigSet)
     }
 
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
@@ -86,13 +67,13 @@ final class PollingTransport: Transport {
     }
 
     private var willRetryOnInterval: Bool {
-        guard let pollingInterval, pollingInterval > 0 else { return false }
-        return state.withLock { $0.fatalError == nil }
+        pollingInterval > 0 && state.withLock { $0.fatalError == nil }
     }
 
     private func schedulePolling(context: ConfigDirectorContext, timeout: TimeInterval, generation: Int) {
-        guard let pollingInterval, willRetryOnInterval else { return }
+        guard willRetryOnInterval else { return }
 
+        let pollingInterval = pollingInterval
         let polling = Task { [weak self] in
             while !Task.isCancelled {
                 guard await (try? Task.sleep(seconds: pollingInterval)) != nil, let self else { return }

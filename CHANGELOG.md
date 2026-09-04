@@ -8,6 +8,11 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
 
 ## [Unreleased]
 
+### Removed
+
+- The `.oneTime` connection mode. Streaming remains the default, and `.polling` covers clients that
+  should fetch on an interval rather than hold a connection open.
+
 ## [1.1.0] - 2026-09-02
 
 ### Changed

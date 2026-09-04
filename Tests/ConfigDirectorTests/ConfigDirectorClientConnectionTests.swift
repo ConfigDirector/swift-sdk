@@ -287,19 +287,6 @@ struct ConfigDirectorClientConnectionTests {
         #expect(client.value(for: "welcome-message", default: "") == "Hello")
     }
 
-    @Test func oneTimeModeFetchesOnConnectOnly() async throws {
-        let fixture = ClientFixture()
-        fixture.servePolling(servedConfigSet, deltaConfigSet([ServedConfig("dark-mode", "boolean", "false")]))
-        let client = try fixture.makeClient(mode: .oneTime, pollingInterval: 0.05)
-        defer { client.close() }
-
-        await client.initialize()
-
-        await settle(0.3)
-        #expect(fixture.pollRequests.count == 1)
-        #expect(client.value(for: "dark-mode", default: false) == true)
-    }
-
     @Test func pollingModeAppliesTheNewContextWhenItsFirstFetchFailsTransiently() async throws {
         let fixture = ClientFixture()
         fixture.servePolling(servedConfigSet)
@@ -331,19 +318,5 @@ struct ConfigDirectorClientConnectionTests {
         }
         #expect(ready != nil)
         #expect(fixture.pollRequests.last?.payload?.givenContext.id == "after")
-    }
-
-    @Test func oneTimeModeKeepsThePreviousContextWhenAnUpdateFails() async throws {
-        let fixture = ClientFixture()
-        fixture.servePolling(servedConfigSet)
-        let client = try fixture.makeClient(mode: .oneTime)
-        defer { client.close() }
-        await client.initialize(context: ConfigDirectorContext(id: "before"))
-
-        StubURLProtocol.enqueue([.json("", statusCode: 503)], for: fixture.pollURL)
-        await client.updateContext(ConfigDirectorContext(id: "after"))
-
-        #expect(client.context?.id == "before")
-        #expect(client.value(for: "dark-mode", default: false) == true)
     }
 }
