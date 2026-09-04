@@ -33,6 +33,10 @@ final class EventSourceClient: Sendable {
         var serverReconnectionTime: TimeInterval = 2
         var task: Task<Void, Never>?
         var isClosed = false
+
+        var canStart: Bool {
+            task == nil && !isClosed
+        }
     }
 
     private static let allowedReconnectDelay: ClosedRange<TimeInterval> = 0.001 ... 3600
@@ -57,17 +61,16 @@ final class EventSourceClient: Sendable {
 
     func start() -> AsyncStream<Event> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
-            let canStart = state.withLock { state in
-                state.task == nil && !state.isClosed
+            let started = state.withLock { state -> Bool in
+                guard state.canStart else { return false }
+                state.task = Task { await run(continuation) }
+                return true
             }
 
-            guard canStart else {
+            guard started else {
                 continuation.finish()
                 return
             }
-
-            let task = Task { await run(continuation) }
-            state.withLock { $0.task = task }
 
             continuation.onTermination = { [weak self] _ in
                 self?.close()

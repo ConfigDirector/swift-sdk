@@ -282,6 +282,24 @@ struct EventSourceClientTests {
         #expect(attempts.withLock { $0 } == [1, 2, 1])
     }
 
+    @Test func doesNotStartAfterBeingClosed() async {
+        let fixture = makeFixture()
+        let client = fixture.client
+        fixture.enqueue(.init(chunks: ["data: one\n\n"], endsStream: false))
+
+        client.close()
+        let finished = Locked(false)
+        Task {
+            for await _ in client.start() {}
+            finished.withLock { $0 = true }
+        }
+
+        #expect(await waitUntil { finished.withLock { $0 } }, "the stream did not finish")
+        await settle(0.1)
+        #expect(StubURLProtocol.recorded(for: fixture.url).isEmpty)
+        #expect(client.readyState == .closed)
+    }
+
     @Test func closeFinishesTheStream() async {
         let fixture = makeFixture()
         let client = fixture.client

@@ -18,10 +18,6 @@ final class StreamingTransport: Transport {
     }
 
     func connect(context: ConfigDirectorContext, timeout: TimeInterval) async throws {
-        guard !state.withLock({ $0.isClosed }) else { return }
-
-        release()
-
         let connected = ConnectionGate()
         var configuration = EventSourceClient.Configuration(url: url)
         configuration.method = "POST"
@@ -42,13 +38,21 @@ final class StreamingTransport: Transport {
         }
 
         let eventSource = EventSourceClient(configuration: configuration, session: options.session)
+        let (isClosed, previous) = state.withLock { state -> (Bool, EventSourceClient?) in
+            guard !state.isClosed else { return (true, nil) }
+            let previous = state.eventSource
+            state.eventSource = eventSource
+            return (false, previous)
+        }
+        previous?.close()
+        guard !isClosed else { return }
+
         let events = eventSource.start()
         Task { [weak self] in
             for await event in events {
                 self?.handle(event, connected)
             }
         }
-        state.withLock { $0.eventSource = eventSource }
 
         try await connected.wait(timeout: timeout)
     }

@@ -168,6 +168,20 @@ struct StreamingTransportTests {
         #expect(fixture.recorded.count == 2)
     }
 
+    @Test func closingWhileTheConnectionIsPendingStopsReconnecting() async throws {
+        let (fixture, transport) = makeTransport(retryDelay: { _ in 0.1 })
+        StubURLProtocol.enqueue(Array(repeating: .init(statusCode: 500), count: 20), for: fixture.endpoint)
+
+        let connecting = Task { try await transport.connect(context: ConfigDirectorContext(), timeout: 0.5) }
+        #expect(await fixture.waitForRequests(1))
+        transport.close()
+        try await connecting.value
+
+        let requestsWhenClosed = fixture.recorded.count
+        await settle(0.4)
+        #expect(fixture.recorded.count == requestsWhenClosed, "the stream kept reconnecting after close")
+    }
+
     @Test func doesNotConnectAfterBeingClosed() async throws {
         let (fixture, transport) = makeTransport()
         fixture.enqueue(.init(endsStream: false))

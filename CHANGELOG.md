@@ -15,6 +15,8 @@ version can be tagged. See [Releasing](CONTRIBUTING.md#releasing).
   `initialize(context:)` and `updateContext(_:)` never reached the server: `.streaming` logged the
   failure and kept the previous context, and `.polling` reported the new context as current while
   logging a warning on every poll.
+- In `.streaming` mode, a `pauseNetwork()` or `close()` that landed while a connection attempt was
+  being set up could leave that connection open and reconnecting on its own.
 
 ### Removed
 
